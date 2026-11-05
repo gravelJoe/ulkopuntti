@@ -1,0 +1,19 @@
+# Render blueprint: one web service that serves both the API and the app.
+# Render → New → Blueprint → pick this repo. You'll be asked for MONGODB_URI.
+services:
+  - type: web
+    name: puntti
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build && npm ci --prefix server
+    startCommand: npm start --prefix server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: MONGODB_URI
+        sync: false # paste the MongoDB Atlas connection string when prompted
+      - key: JWT_SECRET
+        generateValue: true

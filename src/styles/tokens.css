@@ -1,0 +1,56 @@
+/* Design tokens. One accent colour; everything else greyscale.
+   Greys are a notch darker (light) / brighter (dark) than stock iOS
+   for readability outdoors. */
+
+:root {
+  --font: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --accent: #ff6b00;
+  --on-accent: #000000; /* black on orange ≈ 7:1 — readable in sunlight */
+  --accent-text: #c24e00; /* orange used as text on light backgrounds */
+
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --card-pressed: #e5e5ea;
+  --label: #000000;
+  --label-2: #48484d;
+  --label-3: #6e6e73;
+  --separator: #c6c6c8;
+  --control-border: #8e8e93; /* ≥3:1 on card — empty set circles, outlines */
+  --fill: #e3e3e8;
+
+  --radius: 14px;
+  --tap: 56px; /* minimum tap target */
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --accent-text: #ff8a33;
+    --bg: #000000;
+    --card: #1c1c1e;
+    --card-pressed: #2c2c2e;
+    --label: #ffffff;
+    --label-2: #d1d1d6;
+    --label-3: #a1a1a6;
+    --separator: #3a3a3c;
+    --control-border: #8e8e93;
+    --fill: #2c2c2e;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --accent-text: #ff8a33;
+  --bg: #000000;
+  --card: #1c1c1e;
+  --card-pressed: #2c2c2e;
+  --label: #ffffff;
+  --label-2: #d1d1d6;
+  --label-3: #a1a1a6;
+  --separator: #3a3a3c;
+  --control-border: #8e8e93;
+  --fill: #2c2c2e;
+  color-scheme: dark;
+}

@@ -1,0 +1,100 @@
+// The ONLY module the UI uses to read/write workout data.
+//
+// Finished workouts go through the active adapter:
+//   apiAdapter   — logged in, stored on the server
+//   guestAdapter — guest, nothing stored
+// auth.js switches between them with setAdapter().
+//
+// The in-progress workout (draft) always stays on this device, so a weak
+// signal at the gym never breaks a workout. Drafts are kept per account.
+
+import { guestAdapter } from './adapters/guest.js';
+
+let adapter = guestAdapter;
+let scope = 'guest';
+const draftKey = () => `puntti.draft.v2:${scope}`;
+const lastWeightsKey = () => `puntti.lastWeights.v1:${scope}`;
+
+export function setAdapter(next, nextScope) {
+  adapter = next;
+  scope = nextScope;
+}
+
+export const isGuest = () => adapter.isGuest;
+
+// ── Finished workouts ────────────────────────────────────────
+
+/** All finished sessions, newest first. */
+export const listSessions = () => adapter.listSessions();
+export const getSession = (id) => adapter.getSession(id);
+export const saveSession = (session) => adapter.saveSession(session);
+export const deleteSession = (id) => adapter.deleteSession(id);
+
+// ── In-progress workout (device-local) ───────────────────────
+
+function readJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadDraft() {
+  return readJson(draftKey());
+}
+
+export async function saveDraft(draft) {
+  try {
+    localStorage.setItem(draftKey(), JSON.stringify(draft));
+  } catch {
+    /* storage full / unavailable */
+  }
+}
+
+export async function clearDraft() {
+  localStorage.removeItem(draftKey());
+}
+
+/** Carry a guest's unfinished workout over when they log in mid-workout. */
+export function moveDraft(fromScope, toScope) {
+  const from = `puntti.draft.v2:${fromScope}`;
+  const to = `puntti.draft.v2:${toScope}`;
+  const draft = localStorage.getItem(from);
+  if (draft && !localStorage.getItem(to)) localStorage.setItem(to, draft);
+  localStorage.removeItem(from);
+}
+
+// ── Derived queries ──────────────────────────────────────────
+
+/**
+ * { exerciseId: weight } — the weight from the most recent session
+ * containing each exercise. Cached on the device, so prefill still works
+ * without a connection.
+ */
+export async function getLastWeights() {
+  try {
+    const sessions = await adapter.listSessions();
+    const result = {};
+    for (const s of sessions) {
+      for (const ex of s.exercises) if (!(ex.exerciseId in result)) result[ex.exerciseId] = ex.weight;
+    }
+    try {
+      localStorage.setItem(lastWeightsKey(), JSON.stringify(result));
+    } catch {
+      /* ignore */
+    }
+    return result;
+  } catch {
+    return readJson(lastWeightsKey()) ?? {};
+  }
+}
+
+/** { workoutId: ISO date } of the last finished session of each workout. */
+export async function getLastSessionDates() {
+  const sessions = await adapter.listSessions();
+  const result = {};
+  for (const s of sessions) if (!(s.workoutId in result)) result[s.workoutId] = s.finishedAt;
+  return result;
+}

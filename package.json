@@ -1,0 +1,27 @@
+{
+  "name": "puntti",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:http": "HTTP=1 vite",
+    "server": "npm --prefix server run dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "user": "npm --prefix server run user --"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "vite": "^8.3.6"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

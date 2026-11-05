@@ -77,6 +77,10 @@ export async function login(username, password) {
   return res.user;
 }
 
+export async function changePassword(currentPassword, newPassword) {
+  await apiFetch('/api/auth/password', { method: 'POST', body: { currentPassword, newPassword } });
+}
+
 /** Back to the welcome screen. */
 export function logout() {
   state = null;

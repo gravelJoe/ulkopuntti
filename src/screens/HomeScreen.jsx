@@ -131,6 +131,9 @@ export default function HomeScreen({ theme, setTheme }) {
             <div className="row-subtitle">Logged in as</div>
             <div className="row-title">{user.username}</div>
           </ListRow>
+          <ListRow onClick={() => navigate('/account/password')} chevron>
+            <div className="row-title">Change password</div>
+          </ListRow>
           <ListRow onClick={handleLogout}>
             <div className="row-action">Log out</div>
           </ListRow>

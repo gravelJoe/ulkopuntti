@@ -9,6 +9,7 @@ import WorkoutScreen from './screens/WorkoutScreen.jsx';
 import HistoryScreen from './screens/HistoryScreen.jsx';
 import SessionDetailScreen from './screens/SessionDetailScreen.jsx';
 import WelcomeScreen from './screens/WelcomeScreen.jsx';
+import ChangePasswordScreen from './screens/ChangePasswordScreen.jsx';
 
 export default function App() {
   const [theme, setTheme] = useTheme();
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/workout/:workoutId" element={<WorkoutScreen />} />
             <Route path="/history" element={<HistoryScreen />} />
             <Route path="/history/:sessionId" element={<SessionDetailScreen />} />
+            <Route path="/account/password" element={<ChangePasswordScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         ) : (

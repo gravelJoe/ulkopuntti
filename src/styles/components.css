@@ -744,3 +744,7 @@
   font-size: 14px;
   text-align: center;
 }
+.form-toggle-block {
+  display: block;
+  margin: -16px 12px 20px auto;
+}

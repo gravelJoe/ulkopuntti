@@ -7,5 +7,11 @@ const snapshot = () => ({ user: auth.getUser(), entered: auth.hasEntered() });
 export function useAuth() {
   const [s, setS] = useState(snapshot);
   useEffect(() => auth.subscribe(() => setS(snapshot())), []);
-  return { ...s, login: auth.login, continueAsGuest: auth.continueAsGuest, logout: auth.logout };
+  return {
+    ...s,
+    login: auth.login,
+    continueAsGuest: auth.continueAsGuest,
+    logout: auth.logout,
+    changePassword: auth.changePassword,
+  };
 }

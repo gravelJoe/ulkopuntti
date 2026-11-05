@@ -48,6 +48,34 @@ router.post('/login', async (req, res) => {
   res.json({ token: signToken(user), user });
 });
 
+// Change your own password. Wrong current password → 400 (not 401, so the
+// app doesn't treat it as an expired login).
+router.post('/password', requireAuth, async (req, res) => {
+  const currentPassword = String(req.body?.currentPassword ?? '');
+  const newPassword = String(req.body?.newPassword ?? '');
+
+  const user = await User.findById(req.userId);
+  if (!user) return res.status(401).json({ error: 'Account not found' });
+  if (isLocked(user.username)) {
+    return res.status(429).json({ error: 'Too many attempts. Try again in 15 minutes.' });
+  }
+  if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+    recordFailure(user.username);
+    return res.status(400).json({ error: 'Current password is wrong' });
+  }
+  if (newPassword.length < 8 || newPassword.length > 200) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+  if (newPassword === currentPassword) {
+    return res.status(400).json({ error: 'New password must be different from the current one' });
+  }
+
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  await user.save();
+  failures.delete(user.username);
+  res.json({ ok: true });
+});
+
 router.get('/me', requireAuth, async (req, res) => {
   const user = await User.findById(req.userId);
   if (!user) return res.status(401).json({ error: 'Account not found' });

@@ -37,7 +37,7 @@ export default function ChangePasswordScreen() {
         confirmLabel: 'OK',
         cancelLabel: null,
       });
-      navigate('/', { replace: true });
+      navigate('/settings', { replace: true });
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -46,7 +46,7 @@ export default function ChangePasswordScreen() {
 
   return (
     <main className="screen">
-      <NavBar backLabel="Puntti" />
+      <NavBar backLabel="Settings" backTo="/settings" />
       <LargeTitle title="Change password" subtitle={`Account: ${user.username}`} />
 
       <form onSubmit={handleSubmit} noValidate>

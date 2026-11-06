@@ -1,23 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getWorkout, slotSummary, workouts } from '../config/workouts.js';
+import { getWorkout, slotSummary, workoutBadge, workouts } from '../config/workouts.js';
 import { clearDraft, getLastSessionDates, loadDraft } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { progress } from '../workout/session.js';
 import { formatRelativeDate, formatTime } from '../utils/format.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
-import { InsetGroup, LargeTitle, ListRow, SegmentedControl } from '../components/ui.jsx';
+import { InsetGroup, LargeTitle, ListRow } from '../components/ui.jsx';
 
-const THEME_OPTIONS = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
-
-export default function HomeScreen({ theme, setTheme }) {
+export default function HomeScreen() {
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [lastDates, setLastDates] = useState({});
   const [draft, setDraft] = useState(null);
 
@@ -66,15 +60,6 @@ export default function HomeScreen({ theme, setTheme }) {
     setDraft(null);
   }
 
-  async function handleLogout() {
-    const ok = await confirm({
-      title: 'Log out?',
-      message: 'Your history stays saved in your account.',
-      confirmLabel: 'Log out',
-    });
-    if (ok) logout();
-  }
-
   return (
     <main className="screen">
       <LargeTitle title="Puntti" />
@@ -84,7 +69,7 @@ export default function HomeScreen({ theme, setTheme }) {
           <ListRow
             className="workout-row"
             onClick={() => navigate(`/workout/${draft.workoutId}`)}
-            leading={<span className="workout-badge">{draft.workoutId}</span>}
+            leading={<span className="workout-badge">{workoutBadge(draft.workoutId)}</span>}
             chevron
           >
             <div className="row-title">Resume {draftWorkout.name}</div>
@@ -105,7 +90,7 @@ export default function HomeScreen({ theme, setTheme }) {
             key={w.id}
             className="workout-row"
             onClick={() => startWorkout(w.id)}
-            leading={<span className={`workout-badge${draft ? ' is-muted' : ''}`}>{w.id}</span>}
+            leading={<span className={`workout-badge${draft ? ' is-muted' : ''}`}>{workoutBadge(w.id)}</span>}
             chevron
           >
             <div className="row-title">{w.name}</div>
@@ -123,32 +108,10 @@ export default function HomeScreen({ theme, setTheme }) {
         <ListRow onClick={() => navigate('/history')} chevron>
           <div className="row-title">History</div>
         </ListRow>
-      </InsetGroup>
-
-      {user ? (
-        <InsetGroup header="Account">
-          <ListRow>
-            <div className="row-subtitle">Logged in as</div>
-            <div className="row-title">{user.username}</div>
-          </ListRow>
-          <ListRow onClick={() => navigate('/account/password')} chevron>
-            <div className="row-title">Change password</div>
-          </ListRow>
-          <ListRow onClick={handleLogout}>
-            <div className="row-action">Log out</div>
-          </ListRow>
-        </InsetGroup>
-      ) : (
-        <InsetGroup header="Account" footer="As a guest, workouts aren't saved.">
-          <ListRow onClick={() => navigate('/welcome')} chevron>
-            <div className="row-subtitle">Guest mode</div>
-            <div className="row-action">Log in</div>
-          </ListRow>
-        </InsetGroup>
-      )}
-
-      <InsetGroup header="Appearance" padded>
-        <SegmentedControl label="Appearance" options={THEME_OPTIONS} value={theme} onChange={setTheme} />
+        <ListRow onClick={() => navigate('/settings')} chevron>
+          <div className="row-title">Settings</div>
+          {!user && <div className="row-meta">Guest mode · log in here</div>}
+        </ListRow>
       </InsetGroup>
     </main>
   );

@@ -146,8 +146,9 @@
   border-radius: 12px;
   background: var(--accent);
   color: var(--on-accent);
-  font-size: 26px;
+  font-size: 22px; /* fits two letters, e.g. "Mo" */
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .segmented-option:disabled {
@@ -444,7 +445,7 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  font-size: 20px;
+  font-size: 17px;
 }
 .row-action {
   color: var(--accent-text);

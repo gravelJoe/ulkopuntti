@@ -20,17 +20,21 @@ export const exercises = {
   row: { name: 'Row' },
 };
 
+// `id` is stored in history — keep it stable. `name` and `badge` (the short
+// label in the coloured square) can be changed freely.
 // Each slot is either a fixed exercise ({ exercise }) or a choice the
 // user makes on the day ({ choice: [...] }; the first one is the default).
 export const workouts = [
   {
     id: 'A',
-    name: 'Workout A',
+    name: 'Monday',
+    badge: 'Mo',
     slots: [{ exercise: 'squat' }, { exercise: 'latPulldown' }, { exercise: 'upperPress' }],
   },
   {
     id: 'B',
-    name: 'Workout B',
+    name: 'Thursday',
+    badge: 'Th',
     slots: [{ exercise: 'squat' }, { exercise: 'bench' }, { choice: ['multifit', 'row'] }],
   },
 ];
@@ -39,6 +43,11 @@ export const workouts = [
 
 export function getWorkout(id) {
   return workouts.find((w) => w.id === id) ?? null;
+}
+
+/** Short label for the coloured square, e.g. "Mo". */
+export function workoutBadge(id) {
+  return getWorkout(id)?.badge ?? id;
 }
 
 export function exerciseName(id) {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { exerciseName, getWorkout } from '../config/workouts.js';
+import { exerciseName, getWorkout, workoutBadge } from '../config/workouts.js';
 import { listSessions } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { formatDuration, formatRelativeDate, formatWeight } from '../utils/format.js';
@@ -59,7 +59,7 @@ export default function HistoryScreen() {
               <ListRow
                 key={s.id}
                 onClick={() => navigate(`/history/${s.id}`)}
-                leading={<span className="workout-badge is-small">{s.workoutId}</span>}
+                leading={<span className="workout-badge is-small">{workoutBadge(s.workoutId)}</span>}
                 chevron
               >
                 <div className="row-title">

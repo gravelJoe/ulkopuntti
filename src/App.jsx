@@ -10,6 +10,7 @@ import HistoryScreen from './screens/HistoryScreen.jsx';
 import SessionDetailScreen from './screens/SessionDetailScreen.jsx';
 import WelcomeScreen from './screens/WelcomeScreen.jsx';
 import ChangePasswordScreen from './screens/ChangePasswordScreen.jsx';
+import SettingsScreen from './screens/SettingsScreen.jsx';
 
 export default function App() {
   const [theme, setTheme] = useTheme();
@@ -24,7 +25,8 @@ export default function App() {
         <Route path="/welcome" element={<WelcomeScreen />} />
         {entered ? (
           <>
-            <Route path="/" element={<HomeScreen theme={theme} setTheme={setTheme} />} />
+            <Route path="/" element={<HomeScreen />} />
+            <Route path="/settings" element={<SettingsScreen theme={theme} setTheme={setTheme} />} />
             <Route path="/workout/:workoutId" element={<WorkoutScreen />} />
             <Route path="/history" element={<HistoryScreen />} />
             <Route path="/history/:sessionId" element={<SessionDetailScreen />} />

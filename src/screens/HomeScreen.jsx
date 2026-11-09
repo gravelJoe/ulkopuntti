@@ -1,16 +1,34 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getWorkout, slotSummary, workoutBadge, workoutForDay, workouts } from '../config/workouts.js';
-import { clearDraft, getLastSessionDates, loadDraft, wasFinishedToday } from '../data/repository.js';
+import { clearDraft, getLastSessionDates, isGuest, loadDraft, markFinishedToday, wasFinishedToday } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { progress } from '../workout/session.js';
-import { formatRelativeDate, formatTime } from '../utils/format.js';
+import { formatRelativeDate, formatTime, isToday } from '../utils/format.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow } from '../components/ui.jsx';
 
 // Auto-open today's workout only once per app launch — coming back to Home
 // later (e.g. with the back button) never bounces you into it again.
 let autoOpenChecked = false;
+
+/**
+ * Has today's workout already been done? Checks this phone first, then the
+ * saved history (covers another device, or a workout finished before this
+ * phone kept track). If the server is slow (free plan waking up), give up
+ * after 1.5 s and go by what the phone knows.
+ */
+async function doneToday(workoutId) {
+  if (wasFinishedToday(workoutId)) return true;
+  if (isGuest()) return false;
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 1500));
+  const dates = await Promise.race([getLastSessionDates().catch(() => null), timeout]);
+  if (dates && isToday(dates[workoutId])) {
+    markFinishedToday(workoutId);
+    return true;
+  }
+  return false;
+}
 
 export default function HomeScreen() {
   const navigate = useNavigate();
@@ -41,9 +59,11 @@ export default function HomeScreen() {
       // Monday → open Monday's workout, Thursday → Thursday's. Not if it's
       // already done today, or if a different workout is in progress.
       if (!autoOpenChecked) {
-        autoOpenChecked = true;
         const today = workoutForDay();
-        if (today && !wasFinishedToday(today.id) && (!active || active.workoutId === today.id)) {
+        const open = today && (!active || active.workoutId === today.id) && !(await doneToday(today.id));
+        if (!alive) return; // a newer run of this effect takes over
+        autoOpenChecked = true;
+        if (open) {
           navigate(`/workout/${today.id}`);
           return;
         }

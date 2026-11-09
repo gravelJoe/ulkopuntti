@@ -17,6 +17,11 @@ export function formatRelativeDate(iso) {
   return dayFormat.format(date);
 }
 
+/** True if the ISO timestamp falls on today's date (local time). */
+export function isToday(iso) {
+  return Boolean(iso) && startOfDay(new Date(iso)) === startOfDay(new Date());
+}
+
 /** 60 → "60", 62.5 → "62.5" */
 export function formatWeight(kg) {
   return Number.isInteger(kg) ? String(kg) : kg.toFixed(1);

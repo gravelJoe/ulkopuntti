@@ -11,4 +11,10 @@ export const guestAdapter = {
     return session;
   },
   async deleteSession() {},
+  async getProgram() {
+    return null; // guests use the default program
+  },
+  async saveProgram() {
+    throw new Error('Log in to edit workouts');
+  },
 };

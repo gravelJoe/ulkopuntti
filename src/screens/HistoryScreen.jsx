@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { exerciseName, getWorkout, workoutBadge } from '../config/workouts.js';
+import { exerciseName, getWorkout, workoutBadge } from '../program/store.js';
 import { listSessions } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { formatDuration, formatRelativeDate, formatWeight } from '../utils/format.js';

@@ -1,4 +1,4 @@
-import { REST_FAST_FORWARD_SECONDS } from '../config/workouts.js';
+import { REST_EXTEND_SECONDS, REST_FAST_FORWARD_SECONDS } from '../config/workouts.js';
 import { formatWeight } from '../utils/format.js';
 
 function formatClock(ms) {
@@ -12,7 +12,7 @@ function formatClock(ms) {
  * Full-screen rest countdown, readable at arm's length.
  * timer.info: { justDone: 'Squat · Set 2 of 5 done', next: { name, set, weight } | null }
  */
-export default function RestTimerOverlay({ timer, remainingMs, onFastForward, onSkip }) {
+export default function RestTimerOverlay({ timer, remainingMs, onFastForward, onExtend, onSkip }) {
   if (!timer) return null;
   const { info, finished, durationMs } = timer;
   const fraction = finished ? 0 : remainingMs / durationMs;
@@ -51,9 +51,14 @@ export default function RestTimerOverlay({ timer, remainingMs, onFastForward, on
           </button>
         ) : (
           <>
-            <button className="button-secondary rest-btn" onClick={() => onFastForward(REST_FAST_FORWARD_SECONDS)}>
-              −{REST_FAST_FORWARD_SECONDS} s
-            </button>
+            <div className="rest-adjust">
+              <button className="button-secondary rest-btn" onClick={() => onFastForward(REST_FAST_FORWARD_SECONDS)}>
+                −{REST_FAST_FORWARD_SECONDS} s
+              </button>
+              <button className="button-secondary rest-btn" onClick={() => onExtend(REST_EXTEND_SECONDS)}>
+                +{REST_EXTEND_SECONDS} s
+              </button>
+            </div>
             <button className="button-primary rest-btn" onClick={onSkip}>
               Skip
             </button>

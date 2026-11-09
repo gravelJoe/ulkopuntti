@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { exerciseName, getWorkout } from '../config/workouts.js';
+import { exerciseName, getWorkout } from '../program/store.js';
 import { deleteSession, listSessions } from '../data/repository.js';
 import { formatDuration, formatLongDate, formatTime, formatWeight, formatWeightChange } from '../utils/format.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';

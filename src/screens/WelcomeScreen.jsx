@@ -30,6 +30,19 @@ export default function WelcomeScreen() {
     }
   }
 
+  // Local development only — Vite strips this out of the production build.
+  async function handleDevLogin() {
+    setError('');
+    setBusy(true);
+    try {
+      await login('dev', 'devpassword');
+      navigate(returnTo, { replace: true });
+    } catch (err) {
+      setError(`${err.message} (is \`npm run server\` running?)`);
+      setBusy(false);
+    }
+  }
+
   function handleGuest() {
     continueAsGuest();
     navigate(returnTo, { replace: true });
@@ -97,6 +110,11 @@ export default function WelcomeScreen() {
             Continue as guest
           </button>
           <p className="welcome-note">As a guest you can log workouts, but they aren't saved.</p>
+          {import.meta.env.DEV && (
+            <button className="welcome-dev" type="button" onClick={handleDevLogin} disabled={busy}>
+              Dev: log in as test user
+            </button>
+          )}
         </form>
       </div>
     </main>

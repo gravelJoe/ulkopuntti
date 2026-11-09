@@ -4,6 +4,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth.js';
 import workoutRoutes from './routes/workouts.js';
+import programRoutes from './routes/program.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const {
@@ -28,6 +29,7 @@ app.use(express.json({ limit: '100kb' }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/workouts', workoutRoutes);
+app.use('/api/program', programRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 // In production the same server also serves the built app (npm run build → dist/).
@@ -62,5 +64,12 @@ app.use((err, req, res, next) => {
 
 await mongoose.connect(MONGODB_URI);
 console.log('Connected to MongoDB');
+
+// Local development only: make sure the "dev" test account exists, so the
+// welcome screen's dev login button works. Never runs on Render.
+if (!isProduction) {
+  const { ensureDevUser } = await import('./devUser.js');
+  await ensureDevUser();
+}
 
 app.listen(PORT, HOST, () => console.log(`Listening on http://${HOST}:${PORT}`));

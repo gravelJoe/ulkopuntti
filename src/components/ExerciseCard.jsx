@@ -1,4 +1,5 @@
-import { DEFAULT_WEIGHT, exerciseName, exerciseStep } from '../config/workouts.js';
+import { DEFAULT_WEIGHT } from '../config/workouts.js';
+import { exerciseName, exerciseStep } from '../program/store.js';
 import { formatWeight } from '../utils/format.js';
 import { SegmentedControl } from './ui.jsx';
 import WeightStepper from './WeightStepper.jsx';

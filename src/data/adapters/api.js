@@ -24,4 +24,13 @@ export const apiAdapter = {
   async deleteSession(id) {
     await apiFetch(`/api/workouts/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
+
+  /** The user's program, or null if they haven't changed the default yet. */
+  async getProgram() {
+    return (await apiFetch('/api/program')).program;
+  },
+
+  async saveProgram(program) {
+    return (await apiFetch('/api/program', { method: 'PUT', body: program })).program;
+  },
 };

@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { exerciseName, getWorkout, REST_SECONDS } from '../config/workouts.js';
+import { exerciseName, getWorkout } from '../program/store.js';
+import { getRestSeconds } from '../data/preferences.js';
 import { clearDraft, isGuest, loadDraft, markFinishedToday, saveDraft, saveSession } from '../data/repository.js';
 import { createSession, nextSet, progress, sessionReducer, toSavedSession } from '../workout/session.js';
 import { useRestTimer } from '../hooks/useRestTimer.js';
@@ -23,7 +24,10 @@ export default function WorkoutScreen() {
   useWakeLock(true);
 
   // Resume the in-progress draft for this workout, or start fresh.
+  // Keyed on the id (not the object): a program refresh from the server
+  // must not restart a workout that's in progress.
   useEffect(() => {
+    const workout = getWorkout(workoutId);
     if (!workout) return;
     let alive = true;
     (async () => {
@@ -34,7 +38,7 @@ export default function WorkoutScreen() {
     return () => {
       alive = false;
     };
-  }, [workout]);
+  }, [workoutId]);
 
   // Keep the draft up to date so a reload / screen lock doesn't lose anything.
   useEffect(() => {
@@ -70,7 +74,7 @@ export default function WorkoutScreen() {
     }
 
     const nextSlot = after.slots[upcoming.slot];
-    rest.start(REST_SECONDS, {
+    rest.start(getRestSeconds(), {
       justDone: `${exerciseName(slot.selected)} · Set ${doneSets.filter(Boolean).length} of ${doneSets.length} done`,
       next: {
         name: exerciseName(nextSlot.selected),
@@ -177,6 +181,7 @@ export default function WorkoutScreen() {
         timer={rest.timer}
         remainingMs={rest.remainingMs}
         onFastForward={rest.fastForward}
+        onExtend={rest.extend}
         onSkip={rest.skip}
       />
     </main>

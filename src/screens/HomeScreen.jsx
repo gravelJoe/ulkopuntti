@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getWorkout, slotSummary, workoutBadge, workoutForDay, workouts } from '../config/workouts.js';
+import { activeWorkouts, getWorkout, slotSummary, workoutBadge, workoutForDay } from '../program/store.js';
 import { clearDraft, getLastSessionDates, isGuest, loadDraft, markFinishedToday, wasFinishedToday } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { progress } from '../workout/session.js';
@@ -141,7 +141,7 @@ export default function HomeScreen() {
       )}
 
       <InsetGroup header={draft ? 'Start new' : 'Start workout'}>
-        {workouts.map((w) => (
+        {activeWorkouts().map((w) => (
           <ListRow
             key={w.id}
             className="workout-row"

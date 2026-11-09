@@ -428,6 +428,11 @@
 }
 .rest-actions {
   display: flex;
+  flex-direction: column; /* −30 s / +10 s on top, Skip full width below */
+  gap: 12px;
+}
+.rest-adjust {
+  display: flex;
   gap: 12px;
 }
 .rest-btn {
@@ -748,4 +753,156 @@
 .form-toggle-block {
   display: block;
   margin: -16px 12px 20px auto;
+}
+
+/* Text button inside footers, e.g. "Reset to 2:00" */
+.inline-link {
+  color: var(--accent-text);
+  font-size: inherit;
+  font-weight: 600;
+}
+/* stepper-value is a plain display (not a button) in Settings */
+div.stepper-value {
+  display: grid;
+  place-items: center;
+  grid-auto-flow: column;
+  justify-content: center;
+}
+/* Dev-only login button (not in production builds) */
+.welcome-dev {
+  min-height: 48px;
+  border: 1.5px dashed rgb(255 255 255 / 0.45);
+  border-radius: var(--radius);
+  color: rgb(255 255 255 / 0.8);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ── Program editors ────────────────────────────────────────── */
+.editor-danger {
+  margin-top: 36px;
+}
+
+/* Day chips: Mo Tu We Th Fr Sa Su */
+.day-chips {
+  display: flex;
+  gap: 6px;
+}
+.day-chip {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 12px;
+  background: var(--fill);
+  color: var(--label);
+  font-size: 16px;
+  font-weight: 700;
+}
+.day-chip[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Exercise rows in the workout editor: tap to change, arrows to reorder */
+.slot-row {
+  gap: 2px;
+  padding-right: 8px;
+}
+.slot-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 44px;
+  justify-content: center;
+  text-align: left;
+}
+.icon-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  color: var(--label-2);
+}
+.icon-btn:active {
+  background: var(--card-pressed);
+}
+.icon-btn:disabled {
+  opacity: 0.25;
+}
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Full-screen exercise picker */
+.picker {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  animation: rest-in 0.18s ease-out;
+}
+.picker-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 6px) 8px 6px;
+  border-bottom: 1px solid var(--separator);
+  background: var(--bg);
+}
+.picker-title {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+}
+.picker-bar-btn {
+  min-width: 72px;
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--accent-text);
+  font-size: 17px;
+  font-weight: 500;
+}
+.picker-bar-btn.is-strong {
+  font-weight: 700;
+}
+.picker-bar-btn:disabled {
+  color: var(--label-3);
+}
+.picker-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px calc(env(safe-area-inset-bottom) + 32px);
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.picker-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--control-border);
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 700;
+}
+.picker-check.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
 }

@@ -21,6 +21,21 @@ export function setAdapter(next, nextScope) {
 }
 
 export const isGuest = () => adapter.isGuest;
+export const currentScope = () => scope;
+
+// ── Program (exercise library + workouts) ────────────────────
+
+const programKey = () => `puntti.program.v1:${scope}`;
+export const fetchProgram = () => adapter.getProgram();
+export const putProgram = (program) => adapter.saveProgram(program);
+export const loadCachedProgram = () => readJson(programKey());
+export function cacheProgram(program) {
+  try {
+    localStorage.setItem(programKey(), JSON.stringify(program));
+  } catch {
+    /* ignore */
+  }
+}
 
 // ── Finished workouts ────────────────────────────────────────
 

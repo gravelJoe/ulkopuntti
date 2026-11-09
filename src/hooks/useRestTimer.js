@@ -50,6 +50,16 @@ export function useRestTimer() {
     setTimer((t) => t && !t.finished ? { ...t, endAt: Math.max(Date.now(), t.endAt - seconds * 1000) } : t);
   }, []);
 
+  /** Add time to the running rest (the progress bar stretches to match). */
+  const extend = useCallback((seconds) => {
+    setTimer((t) => {
+      if (!t || t.finished) return t;
+      const endAt = t.endAt + seconds * 1000;
+      const durationMs = Math.max(t.durationMs, endAt - Date.now());
+      return { ...t, endAt, durationMs };
+    });
+  }, []);
+
   /** End/close immediately, without the alert. */
   const skip = useCallback(() => setTimer(null), []);
 
@@ -58,6 +68,7 @@ export function useRestTimer() {
     remainingMs: timer ? Math.max(0, timer.endAt - now) : 0,
     start,
     fastForward,
+    extend,
     skip,
   };
 }

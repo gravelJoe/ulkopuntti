@@ -2,16 +2,17 @@
 // weights), updating it, and turning it into a saved session.
 // All sets of an exercise use the same weight.
 
-import { DEFAULT_WEIGHT, SETS_PER_EXERCISE } from '../config/workouts.js';
+import { DEFAULT_WEIGHT } from '../config/workouts.js';
+import { exerciseSets } from '../program/store.js';
 import { getLastWeights } from '../data/repository.js';
 
-export const slotOptions = (slot) => slot.choice ?? [slot.exercise];
+export const slotOptions = (slot) => slot.options ?? slot.choice ?? [slot.exercise];
 
 export function clampWeight(kg) {
   return Math.min(999, Math.max(0, Math.round(kg * 100) / 100));
 }
 
-const emptySets = () => Array(SETS_PER_EXERCISE).fill(false);
+const emptySets = (exerciseId) => Array(exerciseSets(exerciseId)).fill(false);
 const mapOptions = (options, fn) => Object.fromEntries(options.map((id) => [id, fn(id)]));
 
 /**

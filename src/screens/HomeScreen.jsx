@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getWorkout, slotSummary, workoutBadge, workouts } from '../config/workouts.js';
 import { clearDraft, getLastSessionDates, loadDraft } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
@@ -14,6 +14,16 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const [lastDates, setLastDates] = useState({});
   const [draft, setDraft] = useState(null);
+
+  // "Monday saved" banner after a workout finishes automatically.
+  const location = useLocation();
+  const [savedWorkout, setSavedWorkout] = useState(location.state?.savedWorkout ?? null);
+  useEffect(() => {
+    if (!location.state?.savedWorkout) return;
+    navigate('.', { replace: true, state: null }); // don't show it again on reload
+    const id = setTimeout(() => setSavedWorkout(null), 5000);
+    return () => clearTimeout(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reload when the account changes (log in / log out switch data).
   useEffect(() => {
@@ -63,6 +73,15 @@ export default function HomeScreen() {
   return (
     <main className="screen">
       <LargeTitle title="Puntti" />
+
+      {savedWorkout && (
+        <div className="saved-banner" role="status">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m5 12.5 4.5 4.5L19 7.5" />
+          </svg>
+          {savedWorkout} done and saved
+        </div>
+      )}
 
       {draft && (
         <InsetGroup header="In progress">

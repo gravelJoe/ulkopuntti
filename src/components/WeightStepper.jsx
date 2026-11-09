@@ -4,7 +4,7 @@ import { clampWeight } from '../workout/session.js';
 import { formatWeight } from '../utils/format.js';
 
 /** [ − ]  62.5 kg  [ + ]  — tap the number to type an exact value. */
-export default function WeightStepper({ value, onChange, label }) {
+export default function WeightStepper({ value, onChange, label, step = WEIGHT_STEP }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const inputRef = useRef(null);
@@ -34,7 +34,7 @@ export default function WeightStepper({ value, onChange, label }) {
         className="stepper-btn"
         aria-label={`${label}: decrease`}
         disabled={value <= 0}
-        onClick={() => onChange(clampWeight(value - WEIGHT_STEP))}
+        onClick={() => onChange(clampWeight(value - step))}
       >
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h14" /></svg>
       </button>
@@ -65,7 +65,7 @@ export default function WeightStepper({ value, onChange, label }) {
       <button
         className="stepper-btn"
         aria-label={`${label}: increase`}
-        onClick={() => onChange(clampWeight(value + WEIGHT_STEP))}
+        onClick={() => onChange(clampWeight(value + step))}
       >
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h14M10 3v14" /></svg>
       </button>

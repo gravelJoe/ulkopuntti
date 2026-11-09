@@ -1,4 +1,4 @@
-import { DEFAULT_WEIGHT, exerciseName } from '../config/workouts.js';
+import { DEFAULT_WEIGHT, exerciseName, exerciseStep } from '../config/workouts.js';
 import { formatWeight } from '../utils/format.js';
 import { SegmentedControl } from './ui.jsx';
 import WeightStepper from './WeightStepper.jsx';
@@ -43,6 +43,7 @@ export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, 
       <WeightStepper
         label={`${name} weight`}
         value={weight}
+        step={exerciseStep(exerciseId)}
         onChange={(w) => dispatch({ type: 'setWeight', slot: slotIndex, weight: w })}
       />
 

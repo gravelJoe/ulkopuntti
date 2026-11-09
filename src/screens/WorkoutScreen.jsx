@@ -58,13 +58,16 @@ export default function WorkoutScreen() {
     const upcoming = nextSet(after);
     const doneSets = after.slots[slotIndex].sets[slot.selected];
 
-    // Exercise complete → scroll to the next unfinished one (or to Finish).
-    if (doneSets.every(Boolean)) {
-      const target = upcoming ? cardRefs.current[upcoming.slot] : finishRef.current;
-      setTimeout(() => target?.scrollIntoView({ behavior: 'smooth', block: upcoming ? 'start' : 'end' }), 250);
+    // Very last set of the workout → save and go home automatically.
+    if (!upcoming) {
+      handleFinish(after, { auto: true });
+      return;
     }
 
-    if (!upcoming) return;
+    // Exercise complete → scroll to the next unfinished one.
+    if (doneSets.every(Boolean)) {
+      setTimeout(() => cardRefs.current[upcoming.slot]?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250);
+    }
 
     const nextSlot = after.slots[upcoming.slot];
     rest.start(REST_SECONDS, {
@@ -83,12 +86,16 @@ export default function WorkoutScreen() {
     navigate('/');
   }
 
-  async function handleFinish() {
+  // auto: called when the last set is ticked — no "finish early?" question,
+  // and it returns to Home instead of the summary.
+  async function handleFinish(state = session, { auto = false } = {}) {
+    const p = progress(state);
     if (
-      done < total &&
+      !auto &&
+      p.done < p.total &&
       !(await confirm({
         title: 'Finish workout?',
-        message: `${done} of ${total} sets done. Sets you didn't do won't be saved.`,
+        message: `${p.done} of ${p.total} sets done. Sets you didn't do won't be saved.`,
         confirmLabel: 'Finish',
         cancelLabel: 'Keep going',
       }))
@@ -114,13 +121,14 @@ export default function WorkoutScreen() {
     }
 
     setSaving(true);
-    const toSave = toSavedSession(session); // same id on every retry → no duplicates
+    const toSave = toSavedSession(state); // same id on every retry → no duplicates
     for (;;) {
       try {
         const saved = await saveSession(toSave);
         await clearDraft();
         rest.skip();
-        navigate(`/history/${saved.id}`, { replace: true, state: { justFinished: true } });
+        if (auto) navigate('/', { replace: true, state: { savedWorkout: workout.name } });
+        else navigate(`/history/${saved.id}`, { replace: true, state: { justFinished: true } });
         return;
       } catch (err) {
         const retry = await confirm({
@@ -156,7 +164,7 @@ export default function WorkoutScreen() {
 
       {session && (
         <div className="finish-area" ref={finishRef}>
-          <button className="button-primary" disabled={done === 0 || saving} onClick={handleFinish}>
+          <button className="button-primary" disabled={done === 0 || saving} onClick={() => handleFinish()}>
             Finish workout
           </button>
           {done === 0 && <p className="finish-note">Mark at least one set done to finish.</p>}

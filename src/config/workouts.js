@@ -23,6 +23,8 @@ export const exercises = {
 
 // `id` is stored in history — keep it stable. `name` and `badge` (the short
 // label in the coloured square) can be changed freely.
+// `weekday` (0 = Sunday, 1 = Monday … 6 = Saturday): on that day the app
+// opens straight into this workout.
 // Each slot is either a fixed exercise ({ exercise }) or a choice the
 // user makes on the day ({ choice: [...] }; the first one is the default).
 export const workouts = [
@@ -30,12 +32,14 @@ export const workouts = [
     id: 'A',
     name: 'Monday',
     badge: 'Mo',
+    weekday: 1,
     slots: [{ exercise: 'squat' }, { exercise: 'latPulldown' }, { exercise: 'upperPress' }],
   },
   {
     id: 'B',
     name: 'Thursday',
     badge: 'Th',
+    weekday: 4,
     slots: [{ exercise: 'squat' }, { exercise: 'bench' }, { choice: ['multifit', 'row'] }],
   },
 ];
@@ -44,6 +48,11 @@ export const workouts = [
 
 export function getWorkout(id) {
   return workouts.find((w) => w.id === id) ?? null;
+}
+
+/** The workout scheduled for this date's weekday, or null. */
+export function workoutForDay(date = new Date()) {
+  return workouts.find((w) => w.weekday === date.getDay()) ?? null;
 }
 
 /** kg per tap on − / + for this exercise. */

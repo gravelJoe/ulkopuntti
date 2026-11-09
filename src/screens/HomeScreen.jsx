@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getWorkout, slotSummary, workoutBadge, workouts } from '../config/workouts.js';
-import { clearDraft, getLastSessionDates, loadDraft } from '../data/repository.js';
+import { getWorkout, slotSummary, workoutBadge, workoutForDay, workouts } from '../config/workouts.js';
+import { clearDraft, getLastSessionDates, loadDraft, wasFinishedToday } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { progress } from '../workout/session.js';
 import { formatRelativeDate, formatTime } from '../utils/format.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow } from '../components/ui.jsx';
+
+// Auto-open today's workout only once per app launch — coming back to Home
+// later (e.g. with the back button) never bounces you into it again.
+let autoOpenChecked = false;
 
 export default function HomeScreen() {
   const navigate = useNavigate();
@@ -32,7 +36,20 @@ export default function HomeScreen() {
       const d = await loadDraft();
       if (!alive) return;
       // Only offer to resume if something was actually done.
-      setDraft(d && getWorkout(d.workoutId) && progress(d).done > 0 ? d : null);
+      const active = d && getWorkout(d.workoutId) && progress(d).done > 0 ? d : null;
+
+      // Monday → open Monday's workout, Thursday → Thursday's. Not if it's
+      // already done today, or if a different workout is in progress.
+      if (!autoOpenChecked) {
+        autoOpenChecked = true;
+        const today = workoutForDay();
+        if (today && !wasFinishedToday(today.id) && (!active || active.workoutId === today.id)) {
+          navigate(`/workout/${today.id}`);
+          return;
+        }
+      }
+
+      setDraft(active);
       const dates = await getLastSessionDates().catch(() => ({}));
       if (alive) setLastDates(dates);
     })();

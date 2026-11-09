@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { exerciseName, getWorkout, REST_SECONDS } from '../config/workouts.js';
-import { clearDraft, isGuest, loadDraft, saveDraft, saveSession } from '../data/repository.js';
+import { clearDraft, isGuest, loadDraft, markFinishedToday, saveDraft, saveSession } from '../data/repository.js';
 import { createSession, nextSet, progress, sessionReducer, toSavedSession } from '../workout/session.js';
 import { useRestTimer } from '../hooks/useRestTimer.js';
 import { useWakeLock } from '../hooks/useWakeLock.js';
@@ -115,6 +115,7 @@ export default function WorkoutScreen() {
         return;
       }
       await clearDraft();
+      markFinishedToday(workout.id);
       rest.skip();
       navigate('/', { replace: true });
       return;
@@ -126,6 +127,7 @@ export default function WorkoutScreen() {
       try {
         const saved = await saveSession(toSave);
         await clearDraft();
+        markFinishedToday(workout.id);
         rest.skip();
         if (auto) navigate('/', { replace: true, state: { savedWorkout: workout.name } });
         else navigate(`/history/${saved.id}`, { replace: true, state: { justFinished: true } });

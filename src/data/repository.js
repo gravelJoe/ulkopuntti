@@ -57,6 +57,27 @@ export async function clearDraft() {
   localStorage.removeItem(draftKey());
 }
 
+// ── Finished-today marker (device-local) ─────────────────────
+// Lets the app skip auto-opening today's workout once it's done,
+// without waiting for the server.
+
+const localDay = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const finishedKey = () => `puntti.finished.v1:${scope}`;
+
+export function markFinishedToday(workoutId) {
+  try {
+    localStorage.setItem(finishedKey(), JSON.stringify({ workoutId, day: localDay() }));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function wasFinishedToday(workoutId) {
+  const f = readJson(finishedKey());
+  return f?.workoutId === workoutId && f?.day === localDay();
+}
+
 /** Carry a guest's unfinished workout over when they log in mid-workout. */
 export function moveDraft(fromScope, toScope) {
   const from = `puntti.draft.v2:${fromScope}`;

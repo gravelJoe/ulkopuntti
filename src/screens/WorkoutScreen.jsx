@@ -1,12 +1,13 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { exerciseName, getWorkout } from '../program/store.js';
+import { exerciseName, getGym, getWorkout, indoorGyms } from '../program/store.js';
+import { detectPlaceOnLaunch, getPlaceState, markAtGym } from '../program/place.js';
 import { getRestSeconds } from '../data/preferences.js';
 import { clearDraft, isGuest, loadDraft, markFinishedToday, saveDraft, saveSession } from '../data/repository.js';
 import { createSession, nextSet, progress, sessionReducer, toSavedSession } from '../workout/session.js';
 import { useRestTimer } from '../hooks/useRestTimer.js';
 import { useWakeLock } from '../hooks/useWakeLock.js';
-import { LargeTitle, NavBar } from '../components/ui.jsx';
+import { InsetGroup, LargeTitle, ListRow, NavBar } from '../components/ui.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import ExerciseCard from '../components/ExerciseCard.jsx';
 import RestTimerOverlay from '../components/RestTimerOverlay.jsx';
@@ -17,6 +18,7 @@ export default function WorkoutScreen() {
   const navigate = useNavigate();
   const [session, dispatch] = useReducer(sessionReducer, null);
   const [saving, setSaving] = useState(false);
+  const [pickingGym, setPickingGym] = useState(false); // indoor: which gym are you at?
   const rest = useRestTimer();
   const confirm = useConfirm();
   const cardRefs = useRef([]);
@@ -32,7 +34,22 @@ export default function WorkoutScreen() {
     let alive = true;
     (async () => {
       const draft = await loadDraft();
-      const s = draft?.workoutId === workout.id ? draft : await createSession(workout);
+      if (draft?.workoutId === workout.id) {
+        if (alive) dispatch({ type: 'load', session: draft });
+        return;
+      }
+      // Indoors, weights/bars/plates depend on the gym: find out which one.
+      let gymId = null;
+      if (workout.place === 'indoor') {
+        await detectPlaceOnLaunch();
+        const gyms = indoorGyms();
+        gymId = getPlaceState().gymId ?? (gyms.length === 1 ? gyms[0].id : null);
+        if (!gymId && gyms.length > 1) {
+          if (alive) setPickingGym(true);
+          return;
+        }
+      }
+      const s = await createSession(workout, gymId);
       if (alive) dispatch({ type: 'load', session: s });
     })();
     return () => {
@@ -49,6 +66,16 @@ export default function WorkoutScreen() {
 
   const { done, total } = session ? progress(session) : { done: 0, total: 0 };
   const next = session ? nextSet(session) : null;
+  const indoor = workout.place === 'indoor';
+  const gym = indoor ? getGym(session?.gymId) : null;
+
+  /** Picking the gym (before any set is done) restarts with that gym's weights and bars. */
+  async function chooseGym(g) {
+    markAtGym(g.id, g.name, 'chosen');
+    setPickingGym(false);
+    if (session && done > 0) return;
+    dispatch({ type: 'load', session: await createSession(workout, g.id) });
+  }
 
   function handleToggleSet(slotIndex, index) {
     const action = { type: 'toggleSet', slot: slotIndex, index };
@@ -156,7 +183,26 @@ export default function WorkoutScreen() {
       <NavBar backLabel="Puntti" onBack={handleBack} />
       <LargeTitle title={workout.name} subtitle={session ? `${done} of ${total} sets done` : ' '} />
 
-      {session?.slots.map((slot, i) => (
+      {pickingGym && (
+        <InsetGroup header="Which gym are you at?" footer="Weights, bars and plates are remembered per gym.">
+          {indoorGyms().map((g) => (
+            <ListRow key={g.id} onClick={() => chooseGym(g)} chevron>
+              <div className="row-title">{g.name}</div>
+            </ListRow>
+          ))}
+        </InsetGroup>
+      )}
+
+      {indoor && session && !pickingGym && indoorGyms().length > 0 && (
+        <InsetGroup>
+          <ListRow onClick={done === 0 && indoorGyms().length > 1 ? () => setPickingGym(true) : undefined} chevron={done === 0 && indoorGyms().length > 1}>
+            <div className="row-subtitle">Gym</div>
+            <div className="row-title">{gym?.name ?? 'Not chosen'}</div>
+          </ListRow>
+        </InsetGroup>
+      )}
+
+      {!pickingGym && session?.slots.map((slot, i) => (
         <ExerciseCard
           key={i}
           slot={slot}
@@ -165,6 +211,8 @@ export default function WorkoutScreen() {
           dispatch={dispatch}
           onToggleSet={(index) => handleToggleSet(i, index)}
           cardRef={(el) => (cardRefs.current[i] = el)}
+          indoor={indoor}
+          gym={gym}
         />
       ))}
 

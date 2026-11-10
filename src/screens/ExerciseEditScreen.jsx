@@ -1,13 +1,27 @@
 import { useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { SETS_PER_EXERCISE, WEIGHT_STEP } from '../config/workouts.js';
 import { useAuth } from '../hooks/useAuth.js';
-import { activeExercises, activeWorkouts, getExercise, getProgram, newId, saveProgram } from '../program/store.js';
+import {
+  activeExercisesAt,
+  activeWorkouts,
+  getExercise,
+  getProgram,
+  newId,
+  PLACES,
+  saveProgram,
+  trainingMode,
+} from '../program/store.js';
 import { formatWeight } from '../utils/format.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow, NavBar, SegmentedControl } from '../components/ui.jsx';
 
-const STEP_CHOICES = [1.25, 2.5, 5, 10];
+const STEP_CHOICES = { machine: [1.25, 2.5, 5, 10], barbell: [0.5, 1, 2.5, 5] };
+const DEFAULT_STEP = { machine: WEIGHT_STEP, barbell: 1 };
+const KIND_OPTIONS = [
+  { value: 'barbell', label: 'Barbell' },
+  { value: 'machine', label: 'Machine' },
+];
 const MIN_SETS = 1;
 const MAX_SETS = 10;
 
@@ -18,17 +32,25 @@ export default function ExerciseEditScreen() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const { user } = useAuth();
+  const mode = trainingMode();
+  const placeFromList = useLocation().state?.place;
 
+  const [place, setPlace] = useState(
+    existing?.place ?? (mode !== 'both' ? mode : placeFromList === 'indoor' ? 'indoor' : 'outdoor'),
+  );
+  const [kind, setKind] = useState(existing?.kind ?? (place === 'indoor' ? 'barbell' : 'machine'));
   const [name, setName] = useState(existing?.name ?? '');
   const [sets, setSets] = useState(existing?.sets ?? SETS_PER_EXERCISE);
-  const [step, setStep] = useState(existing?.step ?? WEIGHT_STEP);
+  const [step, setStep] = useState(existing?.step ?? DEFAULT_STEP[existing?.kind ?? kind]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   if (!user) return <Navigate to="/settings" replace />;
   if (!isNew && (!existing || existing.archived)) return <Navigate to="/settings/exercises" replace />;
 
-  const stepOptions = (STEP_CHOICES.includes(step) ? STEP_CHOICES : [...STEP_CHOICES, step].sort((a, b) => a - b)).map(
+  const effectiveKind = place === 'indoor' ? kind : 'machine';
+  const choices = STEP_CHOICES[effectiveKind];
+  const stepOptions = (choices.includes(step) ? choices : [...choices, step].sort((a, b) => a - b)).map(
     (v) => ({ value: v, label: `${formatWeight(v)}` }),
   );
   const usedIn = existing ? activeWorkouts().filter((w) => w.slots.some((s) => s.options.includes(existing.id))) : [];
@@ -37,11 +59,11 @@ export default function ExerciseEditScreen() {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return setError('Give the exercise a name');
-    const clash = activeExercises().find((x) => x.id !== existing?.id && x.name.toLowerCase() === trimmed.toLowerCase());
+    const clash = activeExercisesAt(place).find((x) => x.id !== existing?.id && x.name.toLowerCase() === trimmed.toLowerCase());
     if (clash) return setError('An exercise with that name already exists');
 
     const program = getProgram();
-    const exercise = { id: existing?.id ?? newId('ex'), name: trimmed, sets, step };
+    const exercise = { id: existing?.id ?? newId('ex'), name: trimmed, place, kind: effectiveKind, sets, step };
     const exercises = isNew
       ? [...program.exercises, exercise]
       : program.exercises.map((x) => (x.id === exercise.id ? { ...x, ...exercise } : x));
@@ -49,7 +71,7 @@ export default function ExerciseEditScreen() {
     setBusy(true);
     try {
       await saveProgram({ ...program, exercises });
-      navigate('/settings/exercises', { replace: true });
+      navigate(`/settings/exercises?place=${place}`, { replace: true });
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -77,7 +99,7 @@ export default function ExerciseEditScreen() {
     }));
     try {
       await saveProgram({ ...program, exercises, workouts });
-      navigate('/settings/exercises', { replace: true });
+      navigate(`/settings/exercises?place=${place}`, { replace: true });
     } catch (err) {
       setError(err.message);
     }
@@ -85,7 +107,7 @@ export default function ExerciseEditScreen() {
 
   return (
     <main className="screen">
-      <NavBar backLabel="Exercises" backTo="/settings/exercises" />
+      <NavBar backLabel="Exercises" backTo={`/settings/exercises?place=${place}`} />
       <LargeTitle title={isNew ? 'New exercise' : existing.name} />
 
       <form onSubmit={handleSave} noValidate>
@@ -102,6 +124,44 @@ export default function ExerciseEditScreen() {
             />
           </label>
         </InsetGroup>
+
+        {isNew && mode === 'both' && (
+          <InsetGroup header="Place" footer="Indoor and outdoor exercises are kept separate." padded>
+            <SegmentedControl
+              label="Place"
+              options={PLACES}
+              value={place}
+              onChange={(p) => {
+                setPlace(p);
+                const k = p === 'indoor' ? 'barbell' : 'machine';
+                setKind(k);
+                setStep(DEFAULT_STEP[k]);
+              }}
+            />
+          </InsetGroup>
+        )}
+
+        {place === 'indoor' && (
+          <InsetGroup
+            header="Equipment"
+            footer={
+              kind === 'barbell'
+                ? 'You set the total weight; the app shows the bar and which plates to load.'
+                : 'A machine or weight stack: − and + change the weight by the step below.'
+            }
+            padded
+          >
+            <SegmentedControl
+              label="Equipment"
+              options={KIND_OPTIONS}
+              value={kind}
+              onChange={(k) => {
+                setKind(k);
+                setStep(DEFAULT_STEP[k]);
+              }}
+            />
+          </InsetGroup>
+        )}
 
         <InsetGroup header="Sets" padded>
           <div className="stepper">

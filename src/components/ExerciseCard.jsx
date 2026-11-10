@@ -1,14 +1,16 @@
 import { DEFAULT_WEIGHT } from '../config/workouts.js';
-import { exerciseName, exerciseStep } from '../program/store.js';
+import { exerciseName, exerciseStep, isBarbell, platesAt } from '../program/store.js';
 import { formatWeight } from '../utils/format.js';
 import { SegmentedControl } from './ui.jsx';
 import WeightStepper from './WeightStepper.jsx';
+import BarbellHelper from './BarbellHelper.jsx';
 
 /**
  * One exercise: a single weight and a row of set buttons.
  * currentIndex: index of the "up next" set in this card, or -1.
+ * gym: the indoor gym for barbell exercises (null outdoors / not known yet).
  */
-export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, onToggleSet, cardRef }) {
+export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, onToggleSet, cardRef, indoor, gym }) {
   const exerciseId = slot.selected;
   const name = exerciseName(exerciseId);
   const weight = slot.weight[exerciseId];
@@ -47,6 +49,17 @@ export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, 
         step={exerciseStep(exerciseId)}
         onChange={(w) => dispatch({ type: 'setWeight', slot: slotIndex, weight: w })}
       />
+
+      {indoor && isBarbell(exerciseId) && (
+        <BarbellHelper
+          weight={weight}
+          gym={gym}
+          plates={platesAt(gym)}
+          barId={slot.bar?.[exerciseId] ?? null}
+          onBar={(barId) => dispatch({ type: 'setBar', slot: slotIndex, barId })}
+          onWeight={(w) => dispatch({ type: 'setWeight', slot: slotIndex, weight: w })}
+        />
+      )}
 
       <ol className="set-buttons" aria-label={`${name} sets`}>
         {sets.map((done, i) => (

@@ -6,6 +6,7 @@ import { moveDraft, setAdapter } from './repository.js';
 import { apiAdapter } from './adapters/api.js';
 import { guestAdapter } from './adapters/guest.js';
 import { refreshProgram } from '../program/store.js';
+import { resetPlace } from '../program/place.js';
 
 const KEY = 'puntti.auth.v1';
 const GUEST_KEY = 'puntti.guest.v1';
@@ -42,6 +43,7 @@ function apply() {
   if (state) setAdapter(apiAdapter, `user:${state.user.id}`);
   else setAdapter(guestAdapter, 'guest');
   refreshProgram();
+  resetPlace();
   listeners.forEach((fn) => fn());
 }
 

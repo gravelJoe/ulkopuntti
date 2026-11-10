@@ -906,3 +906,139 @@ div.stepper-value {
   background: var(--accent);
   color: var(--on-accent);
 }
+
+/* ── Barbell helper (indoor barbell exercises) ──────────────── */
+.barbell {
+  margin-top: 10px;
+}
+.bar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.bar-chip {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--fill);
+  color: var(--label);
+  font-size: 15px;
+  font-weight: 600;
+}
+.bar-chip-weight {
+  color: var(--label-2);
+  font-weight: 500;
+}
+.bar-chip[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.bar-chip[aria-pressed='true'] .bar-chip-weight {
+  color: var(--on-accent);
+}
+.barbell-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.barbell-label {
+  color: var(--label-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+.barbell-empty {
+  font-size: 17px;
+  font-weight: 600;
+}
+.barbell-note {
+  margin: 0;
+  color: var(--label-2);
+  font-size: 15px;
+}
+.barbell-suggestions {
+  display: flex;
+  gap: 8px;
+}
+.barbell-suggest {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--accent);
+  border-radius: 10px;
+  color: var(--accent-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+/* Plates drawn roughly to scale */
+.plates {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.plate {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  padding: 0 4px;
+  border: 1px solid rgb(0 0 0 / 0.25);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.plate-xl { height: 52px; }
+.plate-l { height: 44px; }
+.plate-m { height: 36px; }
+.plate-s { height: 28px; min-width: 30px; font-size: 12px; }
+.picker-kind {
+  margin-top: 10px;
+}
+
+/* ── Plate & bar editors ────────────────────────────────────── */
+.plate-row {
+  gap: 10px;
+  padding-right: 6px;
+}
+.plate-row .plate {
+  min-width: 14px;
+  width: 14px;
+  height: 30px;
+  padding: 0;
+}
+.plate-row-weight {
+  flex: 1;
+  min-width: 0;
+}
+.mini-stepper {
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  background: var(--fill);
+}
+.mini-stepper-value {
+  min-width: 64px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.mini-stepper-unit {
+  margin-left: 3px;
+  color: var(--label-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.bar-add {
+  gap: 8px;
+}
+.bar-add-weight {
+  flex: 0 0 64px;
+}
+.form-error-inline {
+  margin: 8px 16px 0;
+}
+/* Outdoor / Indoor tabs above a list */
+.tabs {
+  margin: -8px 0 20px;
+}

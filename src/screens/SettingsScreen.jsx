@@ -9,7 +9,8 @@ import {
   setRestSeconds,
 } from '../data/preferences.js';
 import { useAuth } from '../hooks/useAuth.js';
-import { activeExercises, activeWorkouts } from '../program/store.js';
+import { activeExercises, activeWorkouts, activeWorkoutsAt, getProgram, indoorGyms, saveProgram, trainingMode } from '../program/store.js';
+import { detectPlaceOnLaunch, resetPlace } from '../program/place.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow, NavBar, SegmentedControl } from '../components/ui.jsx';
 
@@ -73,6 +74,93 @@ function RestTimerSetting() {
   );
 }
 
+const MODE_OPTIONS = [
+  { value: 'outdoor', label: 'Outdoor' },
+  { value: 'indoor', label: 'Indoor' },
+  { value: 'both', label: 'Both' },
+];
+
+function TrainingPlaceSetting() {
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+  const mode = trainingMode();
+  const gyms = indoorGyms();
+  const [error, setError] = useState('');
+
+  async function change(next) {
+    if (next === mode) return;
+    setError('');
+    const program = getProgram();
+    let workouts = program.workouts;
+
+    // Going indoor-only (or outdoor-only) with no workouts for that place yet:
+    // offer to move the existing ones, so they don't just disappear from Home.
+    if (next !== 'both' && activeWorkoutsAt(next).length === 0) {
+      const other = next === 'indoor' ? 'outdoor' : 'indoor';
+      const movable = activeWorkoutsAt(other);
+      if (movable.length) {
+        const ok = await confirm({
+          title: `Use your workouts ${next}s?`,
+          message: `${movable.map((w) => w.name).join(', ')} ${movable.length === 1 ? 'is an' : 'are'} ${other} workout${movable.length === 1 ? '' : 's'}. Make ${movable.length === 1 ? 'it' : 'them'} ${next}? Indoor and outdoor weights are tracked separately.`,
+          confirmLabel: 'Yes, move',
+          cancelLabel: 'No',
+        });
+        if (ok === null) return; // dismissed: no change
+        if (ok) workouts = workouts.map((w) => (w.archived ? w : { ...w, place: next }));
+      }
+    }
+
+    try {
+      await saveProgram({ ...program, trainingMode: next, workouts });
+      resetPlace();
+      detectPlaceOnLaunch();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <>
+      <InsetGroup
+        header="Where do you train?"
+        footer={
+          mode === 'outdoor'
+            ? 'Your workouts are outdoor workouts.'
+            : mode === 'indoor'
+              ? 'Your workouts are indoor workouts. Indoor weights are kept apart from outdoor ones.'
+              : 'Each time the app opens it checks whether you are at one of your indoor gyms and shows those workouts — otherwise your outdoor ones. Your location stays on your phone.'
+        }
+        padded
+      >
+        <SegmentedControl label="Where do you train?" options={MODE_OPTIONS} value={mode} onChange={change} />
+      </InsetGroup>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      {mode !== 'outdoor' && (
+        <InsetGroup
+          footer={
+            gyms.length
+              ? null
+              : mode === 'both'
+                ? 'Add the indoor gyms you use so the app can recognise them.'
+                : 'Add your gym with its plates and bars.'
+          }
+        >
+          <ListRow onClick={() => navigate('/settings/places')} chevron>
+            <div className="row-title">Indoor gyms</div>
+            <div className="row-meta">
+              {gyms.length === 0 ? 'None yet' : gyms.map((g) => g.name).join(', ')}
+            </div>
+          </ListRow>
+        </InsetGroup>
+      )}
+    </>
+  );
+}
+
 export default function SettingsScreen({ theme, setTheme }) {
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -108,6 +196,8 @@ export default function SettingsScreen({ theme, setTheme }) {
           <div className="list-row empty-state">Log in to create and edit your own workouts.</div>
         </InsetGroup>
       )}
+
+      {user && <TrainingPlaceSetting />}
 
       <RestTimerSetting />
 

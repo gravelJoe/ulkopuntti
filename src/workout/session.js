@@ -3,7 +3,7 @@
 // All sets of an exercise use the same weight.
 
 import { DEFAULT_WEIGHT } from '../config/workouts.js';
-import { exerciseSets } from '../program/store.js';
+import { exerciseSets, getGym, isBarbell } from '../program/store.js';
 import { getLastWeights } from '../data/repository.js';
 
 export const slotOptions = (slot) => slot.options ?? slot.choice ?? [slot.exercise];
@@ -28,12 +28,23 @@ const mapOptions = (options, fn) => Object.fromEntries(options.map((id) => [id, 
  *   }]
  * }
  */
-export async function createSession(workout) {
-  const found = await getLastWeights();
-  const last = (id) => found[id] ?? null;
+/** The bar to start with: the one used last time at this gym (by name), else the gym's first bar. */
+function initialBar(gym, lastBar) {
+  const bars = gym?.bars ?? [];
+  return (lastBar && bars.find((b) => b.name === lastBar.name)) ?? bars[0] ?? null;
+}
+
+/** gymId: indoor gym (weights, bars and plates are per gym); null outdoors or if unknown. */
+export async function createSession(workout, gymId = null) {
+  const place = workout.place ?? 'outdoor';
+  const found = await getLastWeights(place, place === 'indoor' ? gymId : null);
+  const last = (id) => found[id]?.weight ?? null;
+  const gym = place === 'indoor' ? getGym(gymId) : null;
 
   return {
     workoutId: workout.id,
+    place,
+    gymId: place === 'indoor' ? gymId : null,
     startedAt: new Date().toISOString(),
     slots: workout.slots.map((slot) => {
       const options = slotOptions(slot);
@@ -43,6 +54,8 @@ export async function createSession(workout) {
         weight: mapOptions(options, (id) => last(id) ?? DEFAULT_WEIGHT),
         sets: mapOptions(options, emptySets),
         lastWeight: mapOptions(options, last),
+        // Barbell exercises: chosen bar id (per exercise), null otherwise.
+        bar: mapOptions(options, (id) => (isBarbell(id) ? initialBar(gym, found[id]?.bar)?.id ?? null : null)),
       };
     }),
   };
@@ -59,6 +72,12 @@ export function sessionReducer(state, action) {
 
     case 'select':
       return updateSlot(state, action.slot, (slot) => ({ ...slot, selected: action.exerciseId }));
+
+    case 'setBar':
+      return updateSlot(state, action.slot, (slot) => ({
+        ...slot,
+        bar: { ...(slot.bar ?? {}), [slot.selected]: action.barId },
+      }));
 
     case 'setWeight':
       return updateSlot(state, action.slot, (slot) => ({
@@ -116,14 +135,20 @@ export function toSavedSession(state) {
   return {
     id: newId(),
     workoutId: state.workoutId,
+    place: state.place ?? 'outdoor',
+    gymId: state.gymId ?? null,
     startedAt: state.startedAt,
     finishedAt: new Date().toISOString(),
     exercises: state.slots
-      .map((slot) => ({
-        exerciseId: slot.selected,
-        weight: slot.weight[slot.selected],
-        sets: slot.sets[slot.selected],
-      }))
+      .map((slot) => {
+        const bar = getGym(state.gymId)?.bars.find((b) => b.id === slot.bar?.[slot.selected]);
+        return {
+          exerciseId: slot.selected,
+          weight: slot.weight[slot.selected],
+          sets: slot.sets[slot.selected],
+          ...(bar ? { bar: { name: bar.name, weight: bar.weight } } : {}),
+        };
+      })
       .filter((ex) => ex.sets.some(Boolean)),
   };
 }

@@ -13,7 +13,7 @@ import { guestAdapter } from './adapters/guest.js';
 let adapter = guestAdapter;
 let scope = 'guest';
 const draftKey = () => `puntti.draft.v2:${scope}`;
-const lastWeightsKey = () => `puntti.lastWeights.v1:${scope}`;
+const lastWeightsKey = (place, gymId) => `puntti.lastWeights.v3:${scope}:${place}:${gymId ?? '-'}`;
 
 export function setAdapter(next, nextScope) {
   adapter = next;
@@ -105,25 +105,29 @@ export function moveDraft(fromScope, toScope) {
 // ── Derived queries ──────────────────────────────────────────
 
 /**
- * { exerciseId: weight } — the weight from the most recent session
- * containing each exercise. Cached on the device, so prefill still works
- * without a connection.
+ * { exerciseId: { weight, bar } } — from the most recent session containing
+ * each exercise, outdoors or at this indoor gym (weights are per gym indoors).
+ * Cached on the device, so prefill still works without a connection.
  */
-export async function getLastWeights() {
+export async function getLastWeights(place = 'outdoor', gymId = null) {
   try {
     const sessions = await adapter.listSessions();
     const result = {};
     for (const s of sessions) {
-      for (const ex of s.exercises) if (!(ex.exerciseId in result)) result[ex.exerciseId] = ex.weight;
+      if ((s.place ?? 'outdoor') !== place) continue;
+      if (place === 'indoor' && (s.gymId ?? null) !== gymId) continue;
+      for (const ex of s.exercises) {
+        if (!(ex.exerciseId in result)) result[ex.exerciseId] = { weight: ex.weight, bar: ex.bar ?? null };
+      }
     }
     try {
-      localStorage.setItem(lastWeightsKey(), JSON.stringify(result));
+      localStorage.setItem(lastWeightsKey(place, gymId), JSON.stringify(result));
     } catch {
       /* ignore */
     }
     return result;
   } catch {
-    return readJson(lastWeightsKey()) ?? {};
+    return readJson(lastWeightsKey(place, gymId)) ?? {};
   }
 }
 

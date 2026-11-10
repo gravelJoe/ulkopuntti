@@ -16,6 +16,9 @@ import WorkoutsScreen from './screens/WorkoutsScreen.jsx';
 import WorkoutEditScreen from './screens/WorkoutEditScreen.jsx';
 import ExercisesScreen from './screens/ExercisesScreen.jsx';
 import ExerciseEditScreen from './screens/ExerciseEditScreen.jsx';
+import PlacesScreen from './screens/PlacesScreen.jsx';
+import GymEditScreen from './screens/GymEditScreen.jsx';
+import OwnPlatesScreen from './screens/OwnPlatesScreen.jsx';
 
 // Every new screen starts at the top (the browser otherwise keeps the
 // previous screen's scroll position). Layout effect = no visible jump.
@@ -52,6 +55,9 @@ export default function App() {
             <Route path="/settings/workouts/:editId" element={<WorkoutEditScreen />} />
             <Route path="/settings/exercises" element={<ExercisesScreen />} />
             <Route path="/settings/exercises/:exerciseId" element={<ExerciseEditScreen />} />
+            <Route path="/settings/places" element={<PlacesScreen />} />
+            <Route path="/settings/places/:gymId" element={<GymEditScreen />} />
+            <Route path="/settings/plates" element={<OwnPlatesScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         ) : (

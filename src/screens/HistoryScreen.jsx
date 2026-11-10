@@ -71,6 +71,7 @@ export default function HistoryScreen() {
                 </div>
                 <div className="row-meta">
                   {setsDone}/{setsTotal} sets · {formatDuration(s.startedAt, s.finishedAt)}
+                  {s.place === 'indoor' && ' · Indoor'}
                 </div>
               </ListRow>
             );

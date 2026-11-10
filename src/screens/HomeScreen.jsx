@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { activeWorkouts, getWorkout, slotSummary, workoutBadge, workoutForDay } from '../program/store.js';
+import { activeWorkoutsAt, getWorkout, slotSummary, trainingMode, workoutBadge, workoutForDay } from '../program/store.js';
+import { detectPlaceOnLaunch, usePlace } from '../program/place.js';
 import { clearDraft, getLastSessionDates, isGuest, loadDraft, markFinishedToday, wasFinishedToday } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { progress } from '../workout/session.js';
@@ -9,8 +10,10 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow } from '../components/ui.jsx';
 
 // Auto-open today's workout only once per app launch — coming back to Home
-// later (e.g. with the back button) never bounces you into it again.
+// later (e.g. with the back button) never bounces you into it again. Also
+// cancelled as soon as the user taps something themselves.
 let autoOpenChecked = false;
+
 
 /**
  * Has today's workout already been done? Checks this phone first, then the
@@ -36,6 +39,16 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const [lastDates, setLastDates] = useState({});
   const [draft, setDraft] = useState(null);
+  const placeState = usePlace();
+  // Outdoor-only / indoor-only users: no waiting for detection.
+  const mode = trainingMode();
+  const place = mode === 'both' ? placeState.place : mode;
+
+  /** Any tap by the user cancels the pending auto-open. */
+  function go(path, options) {
+    autoOpenChecked = true;
+    navigate(path, options);
+  }
 
   // "Monday saved" banner after a workout finishes automatically.
   const location = useLocation();
@@ -55,23 +68,23 @@ export default function HomeScreen() {
       if (!alive) return;
       // Only offer to resume if something was actually done.
       const active = d && getWorkout(d.workoutId) && progress(d).done > 0 ? d : null;
-
-      // Monday → open Monday's workout, Thursday → Thursday's. Not if it's
-      // already done today, or if a different workout is in progress.
-      if (!autoOpenChecked) {
-        const today = workoutForDay();
-        const open = today && (!active || active.workoutId === today.id) && !(await doneToday(today.id));
-        if (!alive) return; // a newer run of this effect takes over
-        autoOpenChecked = true;
-        if (open) {
-          navigate(`/workout/${today.id}`);
-          return;
-        }
-      }
-
       setDraft(active);
-      const dates = await getLastSessionDates().catch(() => ({}));
-      if (alive) setLastDates(dates);
+      getLastSessionDates()
+        .catch(() => ({}))
+        .then((dates) => alive && setLastDates(dates));
+
+      // Open today's workout for where we are (indoor/outdoor). Not if it's
+      // already done today, or if a different workout is in progress.
+      const detecting = detectPlaceOnLaunch(); // always runs once per launch; instant unless "Both"
+      if (!autoOpenChecked) {
+        const here = await detecting;
+        if (!alive || autoOpenChecked) return; // a newer run took over, or the user tapped something
+        const today = workoutForDay(new Date(), here);
+        const open = today && (!active || active.workoutId === today.id) && !(await doneToday(today.id));
+        if (!alive || autoOpenChecked) return;
+        autoOpenChecked = true;
+        if (open) navigate(`/workout/${today.id}`);
+      }
     })();
     return () => {
       alive = false;
@@ -92,7 +105,7 @@ export default function HomeScreen() {
       if (!ok) return;
       await clearDraft();
     }
-    navigate(`/workout/${id}`);
+    go(`/workout/${id}`);
   }
 
   async function discardDraft() {
@@ -103,9 +116,12 @@ export default function HomeScreen() {
       destructive: true,
     });
     if (!ok) return;
+    autoOpenChecked = true;
     await clearDraft();
     setDraft(null);
   }
+
+  const workoutsHere = activeWorkoutsAt(place);
 
   return (
     <main className="screen">
@@ -124,7 +140,7 @@ export default function HomeScreen() {
         <InsetGroup header="In progress">
           <ListRow
             className="workout-row"
-            onClick={() => navigate(`/workout/${draft.workoutId}`)}
+            onClick={() => go(`/workout/${draft.workoutId}`)}
             leading={<span className="workout-badge">{workoutBadge(draft.workoutId)}</span>}
             chevron
           >
@@ -141,7 +157,15 @@ export default function HomeScreen() {
       )}
 
       <InsetGroup header={draft ? 'Start new' : 'Start workout'}>
-        {activeWorkouts().map((w) => (
+        {workoutsHere.length === 0 && (
+          <div className="list-row empty-state">No {place} workouts yet.</div>
+        )}
+        {workoutsHere.length === 0 && user && (
+          <ListRow onClick={() => go('/settings/workouts/new', { state: { place } })} chevron>
+            <div className="row-action">Create {place === 'indoor' ? 'an indoor' : 'an outdoor'} workout</div>
+          </ListRow>
+        )}
+        {workoutsHere.map((w) => (
           <ListRow
             key={w.id}
             className="workout-row"
@@ -161,10 +185,10 @@ export default function HomeScreen() {
       </InsetGroup>
 
       <InsetGroup>
-        <ListRow onClick={() => navigate('/history')} chevron>
+        <ListRow onClick={() => go('/history')} chevron>
           <div className="row-title">History</div>
         </ListRow>
-        <ListRow onClick={() => navigate('/settings')} chevron>
+        <ListRow onClick={() => go('/settings')} chevron>
           <div className="row-title">Settings</div>
           {!user && <div className="row-meta">Guest mode · log in here</div>}
         </ListRow>

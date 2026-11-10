@@ -25,10 +25,17 @@ router.post('/', async (req, res) => {
   // Only copy known fields; never trust userId from the client.
   const fields = {
     workoutId: b.workoutId,
+    place: b.place === 'indoor' ? 'indoor' : 'outdoor',
+    gymId: typeof b.gymId === 'string' ? b.gymId.slice(0, 40) : null,
     startedAt: b.startedAt,
     finishedAt: b.finishedAt,
     exercises: Array.isArray(b.exercises)
-      ? b.exercises.map((e) => ({ exerciseId: e?.exerciseId, weight: e?.weight, sets: e?.sets }))
+      ? b.exercises.map((e) => ({
+          exerciseId: e?.exerciseId,
+          weight: e?.weight,
+          sets: e?.sets,
+          ...(e?.bar ? { bar: { name: e.bar.name, weight: e.bar.weight } } : {}),
+        }))
       : [],
   };
 

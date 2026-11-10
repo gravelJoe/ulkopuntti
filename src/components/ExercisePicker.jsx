@@ -1,29 +1,32 @@
 import { useState } from 'react';
 import { SETS_PER_EXERCISE, WEIGHT_STEP } from '../config/workouts.js';
-import { activeExercises, getProgram, newId, saveProgram, useProgram } from '../program/store.js';
+import { activeExercisesAt, getProgram, newId, saveProgram, useProgram } from '../program/store.js';
+import { SegmentedControl } from './ui.jsx';
 
 /**
  * Full-screen picker for one workout slot: tap an exercise to choose it.
  * A new exercise can be created here too (it's chosen right away).
  * Calls onDone([exerciseId]).
  */
-export default function ExercisePicker({ current = null, title = 'Add exercise', onDone, onCancel }) {
+export default function ExercisePicker({ current = null, title = 'Add exercise', place = 'outdoor', onDone, onCancel }) {
   useProgram();
   const [newName, setNewName] = useState('');
+  const [newKind, setNewKind] = useState('barbell'); // indoor only
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const list = activeExercises().slice().sort((a, b) => a.name.localeCompare(b.name));
+  const list = activeExercisesAt(place).slice().sort((a, b) => a.name.localeCompare(b.name));
 
   async function createExercise(e) {
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    const existing = activeExercises().find((x) => x.name.toLowerCase() === name.toLowerCase());
+    const existing = activeExercisesAt(place).find((x) => x.name.toLowerCase() === name.toLowerCase());
     if (existing) return onDone([existing.id]);
 
     const program = getProgram();
-    const exercise = { id: newId('ex'), name, sets: SETS_PER_EXERCISE, step: WEIGHT_STEP };
+    const kind = place === 'indoor' ? newKind : 'machine';
+    const exercise = { id: newId('ex'), name, place, kind, sets: SETS_PER_EXERCISE, step: kind === 'barbell' ? 1 : WEIGHT_STEP };
     setBusy(true);
     setError('');
     try {
@@ -47,8 +50,9 @@ export default function ExercisePicker({ current = null, title = 'Add exercise',
 
       <div className="picker-body">
         <section className="inset-group">
-          <h3 className="inset-group-header">Exercises</h3>
+          <h3 className="inset-group-header">{place === 'indoor' ? 'Indoor exercises' : 'Exercises'}</h3>
           <div className="inset-group-body">
+            {list.length === 0 && <div className="list-row empty-state">None yet — add one below.</div>}
             {list.map((e) => (
               <button
                 key={e.id}
@@ -86,8 +90,23 @@ export default function ExercisePicker({ current = null, title = 'Add exercise',
               </button>
             </div>
           </div>
+          {place === 'indoor' && (
+            <div className="picker-kind">
+              <SegmentedControl
+                label="Equipment"
+                options={[
+                  { value: 'barbell', label: 'Barbell' },
+                  { value: 'machine', label: 'Machine' },
+                ]}
+                value={newKind}
+                onChange={setNewKind}
+              />
+            </div>
+          )}
           <p className="inset-group-footer">
-            New exercises get {SETS_PER_EXERCISE} sets and {WEIGHT_STEP} kg steps — change them under Settings → Exercises.
+            New exercises get {SETS_PER_EXERCISE} sets
+            {place === 'indoor' && newKind === 'barbell' ? ' and 1 kg steps' : ` and ${WEIGHT_STEP} kg steps`} — change
+            them under Settings → Exercises.
           </p>
           {error && (
             <p className="form-error" role="alert">

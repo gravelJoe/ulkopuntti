@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import {
   activeWorkouts,
+  PLACES,
+  trainingMode,
+  workoutPlace,
   getProgram,
   getWorkout,
   newId,
@@ -14,7 +17,7 @@ import {
 } from '../program/store.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import ExercisePicker from '../components/ExercisePicker.jsx';
-import { InsetGroup, LargeTitle, ListRow, NavBar } from '../components/ui.jsx';
+import { InsetGroup, LargeTitle, ListRow, NavBar, SegmentedControl } from '../components/ui.jsx';
 
 const autoBadge = (name) => {
   const s = name.trim();
@@ -24,6 +27,7 @@ const autoBadge = (name) => {
 export default function WorkoutEditScreen() {
   const { editId } = useParams();
   const isNew = editId === 'new';
+  const placeFromList = useLocation().state?.place;
   const existing = isNew ? null : getWorkout(editId);
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -33,6 +37,10 @@ export default function WorkoutEditScreen() {
   const [name, setName] = useState(existing?.name ?? '');
   const [badge, setBadge] = useState(existing?.badge ?? '');
   const [badgeEdited, setBadgeEdited] = useState(!isNew);
+  const mode = trainingMode();
+  const [place, setPlace] = useState(
+    existing ? workoutPlace(existing) : mode !== 'both' ? mode : placeFromList === 'indoor' ? 'indoor' : 'outdoor',
+  );
   const [weekday, setWeekday] = useState(existing?.weekday ?? null);
   const [slots, setSlots] = useState(existing?.slots ?? []);
   const [picker, setPicker] = useState(null); // { index } — index = slots.length for a new slot
@@ -43,7 +51,10 @@ export default function WorkoutEditScreen() {
   if (!isNew && (!existing || existing.archived)) return <Navigate to="/settings/workouts" replace />;
 
   const shownBadge = badgeEdited ? badge : autoBadge(name);
-  const dayOwner = weekday === null ? null : activeWorkouts().find((w) => w.weekday === weekday && w.id !== existing?.id);
+  const dayOwner =
+    weekday === null
+      ? null
+      : activeWorkouts().find((w) => w.weekday === weekday && workoutPlace(w) === place && w.id !== existing?.id);
 
   function move(index, delta) {
     setSlots((s) => {
@@ -80,12 +91,15 @@ export default function WorkoutEditScreen() {
       id: existing?.id ?? newId('w'),
       name: trimmed,
       badge: shownBadge.trim(),
+      place,
       weekday,
       slots,
     };
     // One workout per day: the previous owner of this day loses it.
     const others = program.workouts.map((w) =>
-      w.id !== workout.id && weekday !== null && w.weekday === weekday ? { ...w, weekday: null } : w,
+      w.id !== workout.id && weekday !== null && w.weekday === weekday && workoutPlace(w) === place
+        ? { ...w, weekday: null }
+        : w,
     );
     const workouts = isNew ? [...others, workout] : others.map((w) => (w.id === workout.id ? { ...w, ...workout } : w));
 
@@ -122,6 +136,7 @@ export default function WorkoutEditScreen() {
       <ExercisePicker
         title={picker.index < slots.length ? 'Change exercise' : 'Add exercise'}
         current={slots[picker.index]?.options.length === 1 ? slots[picker.index].options[0] : null}
+        place={place}
         onDone={handlePicked}
         onCancel={() => setPicker(null)}
       />
@@ -162,13 +177,40 @@ export default function WorkoutEditScreen() {
           </label>
         </InsetGroup>
 
+        {mode === 'both' && (
+          <InsetGroup
+            header="Place"
+            footer={place === 'indoor' ? 'Shown when you are at any of your indoor gyms.' : 'Shown when you train outdoors.'}
+            padded
+          >
+            <SegmentedControl
+              label="Place"
+              options={PLACES}
+              value={place}
+              onChange={async (p) => {
+                if (p === place) return;
+                if (slots.length) {
+                  const ok = await confirm({
+                    title: `Make this an ${p} workout?`,
+                    message: 'Indoor and outdoor exercises are separate, so the exercise list will be cleared.',
+                    confirmLabel: 'Change',
+                  });
+                  if (!ok) return;
+                  setSlots([]);
+                }
+                setPlace(p);
+              }}
+            />
+          </InsetGroup>
+        )}
+
         <InsetGroup
           header="Day"
           footer={
             weekday === null
               ? 'No day: start it from Home whenever you like.'
               : dayOwner
-                ? `${weekdayName(weekday)} is now used by ${dayOwner.name}. Saving moves it here.`
+                ? `${weekdayName(weekday)} (${place}) is now used by ${dayOwner.name}. Saving moves it here.`
                 : `Opens automatically every ${weekdayName(weekday)}.`
           }
           padded

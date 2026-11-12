@@ -3,6 +3,7 @@
 //   npm run user -- <username>      (asks for the password, hidden)
 //   npm run user -- --list          (show all usernames)
 //   npm run user -- --delete <username>
+//   npm run user -- --rename <old> <new>   (keeps password, workouts, program)
 
 import readline from 'node:readline';
 import mongoose from 'mongoose';
@@ -32,6 +33,32 @@ async function main() {
   if (first === '--list') {
     const users = await User.find().sort({ username: 1 });
     console.log(users.length ? users.map((u) => `  ${u.username}`).join('\n') : '  (no accounts)');
+    return;
+  }
+
+  if (first === '--rename') {
+    // Everything (workouts, program) is linked to the account id, not the name.
+    const from = String(second ?? '').trim().toLowerCase();
+    const to = String(process.argv[4] ?? '').trim().toLowerCase();
+    if (!USERNAME_PATTERN.test(to)) {
+      console.error('Usage: npm run user -- --rename <old> <new>   (new name: 3–20 letters, numbers, . _ -)');
+      process.exitCode = 1;
+      return;
+    }
+    const user = await User.findOne({ username: from });
+    if (!user) {
+      console.error(`No account "${from}".`);
+      process.exitCode = 1;
+      return;
+    }
+    if (await User.exists({ username: to })) {
+      console.error(`"${to}" is already taken.`);
+      process.exitCode = 1;
+      return;
+    }
+    user.username = to;
+    await user.save();
+    console.log(`Renamed ${from} → ${to}. Password, workouts and program are unchanged.`);
     return;
   }
 

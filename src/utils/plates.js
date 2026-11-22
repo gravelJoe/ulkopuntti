@@ -113,6 +113,12 @@ export function solvePlates(total, bar, plates) {
 const round2 = (kg) => Math.round(kg * 100) / 100;
 const EPS = 1e-9;
 
+// solvePlates works on a 50 g grid: it treats any total within ±25 g of a
+// loadable one as exact, and builds lower/higher on the bar rounded to 50 g.
+// These two turn its answers back into real weights on the real bar.
+const exactTotal = (kg, bar) => round2(bar + 2 * toKg(toUnits((kg - bar) / 2)));
+const onRealBar = (total, bar) => (total === null ? null : round2(total - toKg(toUnits(bar)) + bar));
+
 /** False when there is nothing to round against (no bar, no plates, no step). */
 export function isUsableCtx(ctx) {
   if (ctx?.kind === 'machine') return ctx.step > 0;
@@ -127,7 +133,7 @@ export function loadableAtLeast(kg, ctx) {
   if (ctx.kind === 'machine') return round2(Math.ceil(kg / ctx.step - EPS) * ctx.step);
   if (kg <= ctx.bar) return round2(ctx.bar);
   const r = solvePlates(kg, ctx.bar, ctx.plates);
-  return r.exact ? round2(kg) : r.higher;
+  return r.exact ? exactTotal(kg, ctx.bar) : onRealBar(r.higher, ctx.bar);
 }
 
 /** Largest loadable weight ≤ kg, or null below the bar (or below 0 on a machine). */
@@ -138,7 +144,7 @@ export function loadableAtMost(kg, ctx) {
   }
   if (kg < ctx.bar) return null;
   const r = solvePlates(kg, ctx.bar, ctx.plates);
-  return r.exact ? round2(kg) : r.lower;
+  return r.exact ? exactTotal(kg, ctx.bar) : onRealBar(r.lower, ctx.bar);
 }
 
 /** The loadable weight closest to kg; on a tie the lower one. */

@@ -6,7 +6,7 @@
 // weight. roundPlan() then rounds it to what this gym can load.
 // Design: docs/designs/weekly_progression.md
 
-import { DEFAULT_WEIGHT } from '../config/workouts.js';
+import { DEFAULT_WEIGHT, HOLD_WEEKS_DEFAULT } from '../config/workouts.js';
 import { isUsableCtx, loadableAtLeast, loadableAtMost, loadableNearest } from '../utils/plates.js';
 
 const OUTCOMES = ['success', 'neutral', 'fail'];
@@ -37,8 +37,9 @@ const holdLabel = (hold, holdWeeks) => `Hold ${hold} of ${holdWeeks}`;
  *             reason: string, sameWeek: boolean }}
  *   holdWeek: the hold week the next session is in (0 = not holding).
  */
-export function planFor({ exerciseId, progression, holdWeeks, history, now = new Date() }) {
+export function planFor({ exerciseId, progression, holdWeeks: holdSetting, history, now = new Date() }) {
   const thisWeek = weekKey(now);
+  const holdWeeks = holdSetting ?? HOLD_WEEKS_DEFAULT;
 
   // Step 1: counted sessions (the exercise with a result), grouped by week.
   // The deciding session of a week is the one that finished last.
@@ -79,7 +80,9 @@ export function planFor({ exerciseId, progression, holdWeeks, history, now = new
 
   const holding = hold > 0;
   const withHold = (reason) => (holding ? `${reason} · ${holdLabel(hold, holdWeeks)}` : reason);
-  const latestKey = weeks[weeks.length - 1];
+  // Latest counted week up to now (a session dated in the future, from a wrong
+  // phone clock, is ignored here as it is in the replay).
+  const latestKey = weeks.filter((k) => k <= thisWeek).pop();
   const latest = latestKey ? deciding.get(latestKey) : null;
   const result = (fields) => ({ holdWeek: hold, holdWeeks, sameWeek: false, ...fields });
 

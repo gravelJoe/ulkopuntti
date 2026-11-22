@@ -4,7 +4,7 @@ import { activeWorkoutsAt, getWorkout, slotSummary, trainingMode, workoutBadge, 
 import { detectPlaceOnLaunch, usePlace } from '../program/place.js';
 import { clearDraft, getLastSessionDates, isGuest, loadDraft, markFinishedToday, wasFinishedToday } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
-import { progress } from '../workout/session.js';
+import { hasProgress, progress } from '../workout/session.js';
 import { formatRelativeDate, formatTime, isToday } from '../utils/format.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow } from '../components/ui.jsx';
@@ -66,8 +66,8 @@ export default function HomeScreen() {
     (async () => {
       const d = await loadDraft();
       if (!alive) return;
-      // Only offer to resume if something was actually done.
-      const active = d && getWorkout(d.workoutId) && progress(d).done > 0 ? d : null;
+      // Only offer to resume if something was actually done (a set or a result).
+      const active = d && getWorkout(d.workoutId) && hasProgress(d) ? d : null;
       setDraft(active);
       getLastSessionDates()
         .catch(() => ({}))
@@ -93,6 +93,8 @@ export default function HomeScreen() {
 
   const draftProgress = draft ? progress(draft) : null;
   const draftWorkout = draft ? getWorkout(draft.workoutId) : null;
+  // Indoor workouts aren't saved automatically: every set done but not saved yet.
+  const unsaved = draft?.place === 'indoor' && draftProgress.total > 0 && draftProgress.done === draftProgress.total;
 
   async function startWorkout(id) {
     if (draft && draft.workoutId !== id) {
@@ -137,16 +139,18 @@ export default function HomeScreen() {
       )}
 
       {draft && (
-        <InsetGroup header="In progress">
+        <InsetGroup header={unsaved ? 'Not saved yet' : 'In progress'}>
           <ListRow
             className="workout-row"
             onClick={() => go(`/workout/${draft.workoutId}`)}
             leading={<span className="workout-badge">{workoutBadge(draft.workoutId)}</span>}
             chevron
           >
-            <div className="row-title">Resume {draftWorkout.name}</div>
+            <div className="row-title">{unsaved ? 'Unsaved workout: Save now' : `Resume ${draftWorkout.name}`}</div>
             <div className="row-subtitle">
-              {draftProgress.done} of {draftProgress.total} sets done
+              {unsaved
+                ? `${draftWorkout.name} · all ${draftProgress.total} sets done`
+                : `${draftProgress.done} of ${draftProgress.total} sets done`}
             </div>
             <div className="row-meta">Started {formatTime(draft.startedAt)}</div>
           </ListRow>

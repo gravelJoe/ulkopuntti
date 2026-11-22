@@ -4,7 +4,16 @@ import { exerciseName, getGym, getWorkout, indoorGyms } from '../program/store.j
 import { detectPlaceOnLaunch, getPlaceState, markAtGym } from '../program/place.js';
 import { getRestSeconds } from '../data/preferences.js';
 import { clearDraft, isGuest, loadDraft, markFinishedToday, saveDraft, saveSession } from '../data/repository.js';
-import { createSession, nextSet, progress, sessionReducer, toSavedSession } from '../workout/session.js';
+import {
+  createSession,
+  hasProgress,
+  isProgressive,
+  missingOutcomes,
+  nextSet,
+  progress,
+  sessionReducer,
+  toSavedSession,
+} from '../workout/session.js';
 import { useRestTimer } from '../hooks/useRestTimer.js';
 import { useWakeLock } from '../hooks/useWakeLock.js';
 import { InsetGroup, LargeTitle, ListRow, NavBar } from '../components/ui.jsx';
@@ -68,12 +77,16 @@ export default function WorkoutScreen() {
   const next = session ? nextSet(session) : null;
   const indoor = workout.place === 'indoor';
   const gym = indoor ? getGym(session?.gymId) : null;
+  // Indoor + logged in: result buttons, and the workout is saved only with "Save workout".
+  const progressive = session ? isProgressive(session) : false;
+  const started = session ? hasProgress(session) : false;
+  const canChangeGym = !started && indoorGyms().length > 1;
 
-  /** Picking the gym (before any set is done) restarts with that gym's weights and bars. */
+  /** Picking the gym (before anything is done) restarts with that gym's weights, bars and plan. */
   async function chooseGym(g) {
     markAtGym(g.id, g.name, 'chosen');
     setPickingGym(false);
-    if (session && done > 0) return;
+    if (session && hasProgress(session)) return;
     dispatch({ type: 'load', session: await createSession(workout, g.id) });
   }
 
@@ -89,9 +102,14 @@ export default function WorkoutScreen() {
     const upcoming = nextSet(after);
     const doneSets = after.slots[slotIndex].sets[slot.selected];
 
-    // Very last set of the workout → save and go home automatically.
     if (!upcoming) {
-      handleFinish(after, { auto: true });
+      // Indoor (logged in): stay here so the last exercise's result can be set,
+      // then save with the button. Otherwise: save and go home automatically.
+      if (progressive) {
+        setTimeout(() => finishRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 250);
+      } else {
+        handleFinish(after, { auto: true });
+      }
       return;
     }
 
@@ -113,13 +131,22 @@ export default function WorkoutScreen() {
 
   // Leaving keeps the workout in progress (resumable from Home) — unless nothing was done yet.
   async function handleBack() {
-    if (done === 0) await clearDraft();
+    if (!started) await clearDraft();
     navigate('/');
   }
 
   // auto: called when the last set is ticked — no "finish early?" question,
   // and it returns to Home instead of the summary.
   async function handleFinish(state = session, { auto = false } = {}) {
+    const missing = missingOutcomes(state);
+    if (missing.length > 0) {
+      await confirm({
+        title: 'Choose a result',
+        message: `Choose Go up, Repeat or Go down for ${missing.map(exerciseName).join(', ')}.`,
+        cancelLabel: null,
+      });
+      return;
+    }
     const p = progress(state);
     if (
       !auto &&
@@ -160,7 +187,7 @@ export default function WorkoutScreen() {
         await clearDraft();
         markFinishedToday(workout.id);
         rest.skip();
-        if (auto) navigate('/', { replace: true, state: { savedWorkout: workout.name } });
+        if (auto || isProgressive(state)) navigate('/', { replace: true, state: { savedWorkout: workout.name } });
         else navigate(`/history/${saved.id}`, { replace: true, state: { justFinished: true } });
         return;
       } catch (err) {
@@ -195,7 +222,7 @@ export default function WorkoutScreen() {
 
       {indoor && session && !pickingGym && indoorGyms().length > 0 && (
         <InsetGroup>
-          <ListRow onClick={done === 0 && indoorGyms().length > 1 ? () => setPickingGym(true) : undefined} chevron={done === 0 && indoorGyms().length > 1}>
+          <ListRow onClick={canChangeGym ? () => setPickingGym(true) : undefined} chevron={canChangeGym}>
             <div className="row-subtitle">Gym</div>
             <div className="row-title">{gym?.name ?? 'Not chosen'}</div>
           </ListRow>
@@ -213,15 +240,24 @@ export default function WorkoutScreen() {
           cardRef={(el) => (cardRefs.current[i] = el)}
           indoor={indoor}
           gym={gym}
+          progressive={progressive}
         />
       ))}
 
       {session && (
         <div className="finish-area" ref={finishRef}>
-          <button className="button-primary" disabled={done === 0 || saving} onClick={() => handleFinish()}>
-            Finish workout
+          <button
+            className={`button-primary${progressive && total > 0 && done === total ? ' button-primary--ready' : ''}`}
+            disabled={!started || saving}
+            onClick={() => handleFinish()}
+          >
+            {progressive ? 'Save workout' : 'Finish workout'}
           </button>
-          {done === 0 && <p className="finish-note">Mark at least one set done to finish.</p>}
+          {!started && (
+            <p className="finish-note">
+              {progressive ? 'Mark a set or a result first.' : 'Mark at least one set done to finish.'}
+            </p>
+          )}
         </div>
       )}
 

@@ -175,6 +175,10 @@
   color: var(--label-3);
   cursor: default;
 }
+/* Every set done but not saved yet (indoor): make Save stand out. */
+.button-primary--ready {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+}
 
 /* ── Workout: exercise card ─────────────────────────────────── */
 .exercise-card {
@@ -213,6 +217,15 @@
 }
 .exercise-choice {
   margin-bottom: 8px;
+}
+.exercise-plan {
+  margin: -8px 4px 12px;
+  color: var(--accent-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.exercise-result {
+  margin-top: 14px;
 }
 
 /* ── WeightStepper ──────────────────────────────────────────── */

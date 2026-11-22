@@ -1,25 +1,22 @@
-const dayFormat = new Intl.DateTimeFormat('en-GB', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-});
+import { DateTime } from 'luxon';
+import { LOCALE, toDateTime } from './dates.js';
 
-function startOfDay(d) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-}
+// All dates are shown in the phone's local time, with British wording
+// (the locale is passed on every call, never taken from a global setting).
+const fmt = (iso, options) => toDateTime(iso).toLocaleString(options, { locale: LOCALE });
 
 /** "Today", "Yesterday", or "Tue 3 Nov" */
 export function formatRelativeDate(iso) {
-  const date = new Date(iso);
-  const diffDays = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86_400_000);
+  const date = toDateTime(iso);
+  const diffDays = Math.round(DateTime.now().startOf('day').diff(date.startOf('day'), 'days').days);
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
-  return dayFormat.format(date);
+  return fmt(iso, { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 /** True if the ISO timestamp falls on today's date (local time). */
 export function isToday(iso) {
-  return Boolean(iso) && startOfDay(new Date(iso)) === startOfDay(new Date());
+  return Boolean(iso) && toDateTime(iso).hasSame(DateTime.now(), 'day');
 }
 
 /** 60 → "60", 62.5 → "62.5", 1.25 → "1.25" (up to two decimals, no trailing zeros) */
@@ -27,24 +24,21 @@ export function formatWeight(kg) {
   return String(Math.round(kg * 100) / 100);
 }
 
-const longDateFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-const timeFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
-
 /** "Tuesday 3 November" (+ year if not this year) */
 export function formatLongDate(iso) {
-  const d = new Date(iso);
-  const base = longDateFormat.format(d);
-  return d.getFullYear() === new Date().getFullYear() ? base : `${base} ${d.getFullYear()}`;
+  const d = toDateTime(iso);
+  const base = fmt(iso, { weekday: 'long', day: 'numeric', month: 'long' });
+  return d.year === DateTime.now().year ? base : `${base} ${d.year}`;
 }
 
 /** "18:02" */
 export function formatTime(iso) {
-  return timeFormat.format(new Date(iso));
+  return fmt(iso, { hour: '2-digit', minute: '2-digit' });
 }
 
 /** "46 min" / "1 h 5 min" */
 export function formatDuration(startIso, endIso) {
-  const min = Math.max(0, Math.round((new Date(endIso) - new Date(startIso)) / 60_000));
+  const min = Math.max(0, Math.round(toDateTime(endIso).diff(toDateTime(startIso), 'minutes').minutes));
   if (min < 60) return `${min} min`;
   return `${Math.floor(min / 60)} h ${min % 60} min`;
 }

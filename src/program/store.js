@@ -14,6 +14,7 @@
 // "Deleting" archives, so History can still show old names.
 
 import { useSyncExternalStore } from 'react';
+import { DateTime } from 'luxon';
 import {
   HOLD_WEEKS_DEFAULT,
   INCREASE_DEFAULT,
@@ -185,8 +186,9 @@ export function progressionOf(id) {
 }
 
 /** The active workout at this place scheduled for this date's weekday, or null. */
-export const workoutForDay = (date = new Date(), place = 'outdoor') =>
-  activeWorkoutsAt(place).find((w) => w.weekday === date.getDay()) ?? null;
+/** date: a Luxon DateTime (default: now). Workouts store weekday 0 = Sunday … 6 = Saturday. */
+export const workoutForDay = (date = DateTime.now(), place = 'outdoor') =>
+  activeWorkoutsAt(place).find((w) => w.weekday === date.weekday % 7) ?? null;
 
 export const newId = (prefix) => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 

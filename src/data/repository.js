@@ -8,6 +8,7 @@
 // The in-progress workout (draft) always stays on this device, so a weak
 // signal at the gym never breaks a workout. Drafts are kept per account.
 
+import { DateTime } from 'luxon';
 import { guestAdapter } from './adapters/guest.js';
 
 let adapter = guestAdapter;
@@ -87,8 +88,7 @@ export async function clearDraft() {
 // Lets the app skip auto-opening today's workout once it's done,
 // without waiting for the server.
 
-const localDay = (d = new Date()) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const localDay = () => DateTime.now().toISODate();
 const finishedKey = () => `puntti.finished.v1:${scope}`;
 
 export function markFinishedToday(workoutId) {

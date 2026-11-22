@@ -55,6 +55,11 @@ export function markAtGym(gymId, name, source = 'detected') {
   set({ place: 'indoor', source, gym: name, gymId });
 }
 
+/** Dev panel: pretend to be outdoors (until the next reload / launch detection). */
+export function markOutdoor() {
+  set({ place: 'outdoor', source: 'chosen', gym: null, gymId: null });
+}
+
 let launchDetection = null;
 
 /** Works out the place (and indoor gym) once per launch and per account. */

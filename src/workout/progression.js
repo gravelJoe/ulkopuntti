@@ -8,19 +8,19 @@
 
 import { DEFAULT_WEIGHT, HOLD_WEEKS_DEFAULT } from '../config/workouts.js';
 import { isUsableCtx, loadableAtLeast, loadableAtMost, loadableNearest } from '../utils/plates.js';
+import { DateTime } from 'luxon';
+import { LOCALE, toDateTime } from '../utils/dates.js';
 
 const OUTCOMES = ['success', 'neutral', 'fail'];
 const ACTION = { success: 'up', neutral: 'same', fail: 'down' };
-// Same short names as WEEKDAYS in program/store.js (kept here so this module stays pure).
-const DAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-const pad = (n) => String(n).padStart(2, '0');
-
-/** 'YYYY-MM-DD' of the Monday that starts the date's week (phone's local time). */
+/**
+ * 'YYYY-MM-DD' of the Monday that starts the date's week (phone's local time),
+ * or null for an invalid date. Accepts a DateTime, a JS Date or an ISO string.
+ */
 export function weekKey(date) {
-  const d = new Date(date);
-  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
-  return `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
+  const d = toDateTime(date);
+  return d.isValid ? d.startOf('week').toISODate() : null;
 }
 
 /** The saved result, or null (not trained) when missing or unknown. */
@@ -37,7 +37,7 @@ const holdLabel = (hold, holdWeeks) => `Hold ${hold} of ${holdWeeks}`;
  *             reason: string, sameWeek: boolean }}
  *   holdWeek: the hold week the next session is in (0 = not holding).
  */
-export function planFor({ exerciseId, progression, holdWeeks: holdSetting, history, now = new Date() }) {
+export function planFor({ exerciseId, progression, holdWeeks: holdSetting, history, now = DateTime.now() }) {
   const thisWeek = weekKey(now);
   const holdWeeks = holdSetting ?? HOLD_WEEKS_DEFAULT;
 
@@ -48,6 +48,7 @@ export function planFor({ exerciseId, progression, holdWeeks: holdSetting, histo
     const exercise = findExercise(session, exerciseId);
     if (!exercise || !exerciseOutcome(exercise)) continue;
     const key = weekKey(session.finishedAt);
+    if (!key) continue; // invalid date: ignore
     const prev = deciding.get(key);
     if (!prev || new Date(session.finishedAt) > new Date(prev.session.finishedAt)) deciding.set(key, { session, exercise });
   }
@@ -95,7 +96,7 @@ export function planFor({ exerciseId, progression, holdWeeks: holdSetting, histo
   // Rule 2: already trained this week → start from that session; the weight
   // only moves across week boundaries.
   if (latestKey === thisWeek) {
-    const day = DAY_SHORT[new Date(latest.session.finishedAt).getDay()];
+    const day = toDateTime(latest.session.finishedAt).setLocale(LOCALE).toFormat('ccc');
     return result({ base: latest.exercise.weight, action: 'same', reason: withHold(`Same week as ${day}`), sameWeek: true });
   }
 
@@ -156,7 +157,7 @@ export function roundPlan(plan, increase, ctx) {
  *        holdWeek (hold state going into that week, 0 = none), extraSessions }
  * extraSessions: other sessions that week containing the exercise.
  */
-export function weeklyHistory({ exerciseId, holdWeeks: holdSetting, history, now = new Date() }) {
+export function weeklyHistory({ exerciseId, holdWeeks: holdSetting, history, now = DateTime.now() }) {
   const holdWeeks = holdSetting ?? HOLD_WEEKS_DEFAULT;
   const indoor = history.filter((s) => s.place === 'indoor');
   const thisWeek = weekKey(now);
@@ -165,7 +166,7 @@ export function weeklyHistory({ exerciseId, holdWeeks: holdSetting, history, now
     const exercise = findExercise(session, exerciseId);
     if (!exercise) continue;
     const key = weekKey(session.finishedAt);
-    if (key > thisWeek) continue;
+    if (!key || key > thisWeek) continue;
     const entry = weeks.get(key) ?? { all: 0, counted: null };
     entry.all += 1;
     if (exerciseOutcome(exercise) && (!entry.counted || new Date(session.finishedAt) > new Date(entry.counted.session.finishedAt))) {
@@ -177,8 +178,7 @@ export function weeklyHistory({ exerciseId, holdWeeks: holdSetting, history, now
     .filter(([, e]) => e.counted)
     .sort(([a], [b]) => (a < b ? 1 : -1))
     .map(([week, { all, counted }]) => {
-      const [y, m, d] = week.split('-').map(Number);
-      const monday = new Date(y, m - 1, d); // 00:00 local: replay covers only earlier weeks
+      const monday = DateTime.fromISO(week); // 00:00 local: replay covers only earlier weeks
       const { holdWeek } = planFor({ exerciseId, progression: null, holdWeeks, history: indoor, now: monday });
       return {
         week,

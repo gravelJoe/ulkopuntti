@@ -1,10 +1,14 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { useEffect, useLayoutEffect } from 'react';
+import { Suspense, lazy, useEffect, useLayoutEffect } from 'react';
 import { useTheme } from './hooks/useTheme.js';
 import { verify } from './data/auth.js';
 import { useAuth } from './hooks/useAuth.js';
 import { useProgram } from './program/store.js';
 import { ConfirmProvider } from './components/ConfirmDialog.jsx';
+
+// Test controls (simulated time, offline, …) exist only in `npm run dev`;
+// in production this is null and the panel's code isn't in the bundle.
+const DevPanel = import.meta.env.DEV ? lazy(() => import('./components/DevPanel.jsx')) : null;
 import HomeScreen from './screens/HomeScreen.jsx';
 import WorkoutScreen from './screens/WorkoutScreen.jsx';
 import HistoryScreen from './screens/HistoryScreen.jsx';
@@ -67,6 +71,11 @@ export default function App() {
           <Route path="*" element={<Navigate to="/welcome" replace />} />
         )}
       </Routes>
+      {DevPanel && (
+        <Suspense fallback={null}>
+          <DevPanel />
+        </Suspense>
+      )}
     </ConfirmProvider>
   );
 }

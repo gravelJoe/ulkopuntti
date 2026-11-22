@@ -8,6 +8,8 @@ import { getSessionHistory, isGuest, lastWeightsFrom } from '../data/repository.
 import { planFor, plannedWeight, roundPlan } from './progression.js';
 import { ctxFor } from './rounding.js';
 import { isUsableCtx } from '../utils/plates.js';
+import { DateTime } from 'luxon';
+import { nowISO } from '../utils/dates.js';
 
 export const slotOptions = (slot) => slot.options ?? slot.choice ?? [slot.exercise];
 
@@ -73,7 +75,7 @@ function makePlan(exerciseId, history, gymId, barId, offline, now) {
  * then planFor + rounding. Shared by createSession and History → By exercise.
  * indoorHistory: indoor sessions, newest first. Returns { plan, barId }.
  */
-export function planNextTime(exerciseId, indoorHistory, gymId, lastBar, { offline = false, now = new Date() } = {}) {
+export function planNextTime(exerciseId, indoorHistory, gymId, lastBar, { offline = false, now = DateTime.now() } = {}) {
   const barId = isBarbell(exerciseId) ? initialBar(getGym(gymId), lastBar)?.id ?? null : null;
   return { plan: makePlan(exerciseId, indoorHistory, gymId, barId, offline, now), barId };
 }
@@ -89,13 +91,13 @@ export async function createSession(workout, gymId = null) {
   // Offline with no cached history: no plans this time; weights start at the default.
   const noPlanOffline = progression && sessions === null;
   const indoorHistory = progression && sessions ? sessions.filter((s) => s.place === 'indoor') : [];
-  const now = new Date();
+  const now = DateTime.now();
 
   return {
     workoutId: workout.id,
     place,
     gymId: place === 'indoor' ? gymId : null,
-    startedAt: now.toISOString(),
+    startedAt: nowISO(),
     progression,
     slots: workout.slots.map((slot) => {
       const options = slotOptions(slot);
@@ -233,7 +235,7 @@ export function toSavedSession(state) {
     place: state.place ?? 'outdoor',
     gymId: state.gymId ?? null,
     startedAt: state.startedAt,
-    finishedAt: new Date().toISOString(),
+    finishedAt: nowISO(),
     exercises: state.slots
       .map((slot) => {
         const bar = getGym(state.gymId)?.bars.find((b) => b.id === slot.bar?.[slot.selected]);

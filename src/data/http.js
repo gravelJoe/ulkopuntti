@@ -16,11 +16,22 @@ export function configureHttp({ tokenProvider, unauthorizedHandler }) {
   onUnauthorized = unauthorizedHandler;
 }
 
+function devOffline() {
+  try {
+    return localStorage.getItem('puntti.dev.offline') === '1';
+  } catch {
+    return false;
+  }
+}
+
 export async function apiFetch(path, { method = 'GET', body, auth = true } = {}) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const token = auth ? getToken() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
+
+  // Dev panel → "Simulate offline": fail like a real lost connection.
+  if (import.meta.env?.DEV && devOffline()) throw new ApiError('No connection (simulated).', 0);
 
   let res;
   try {

@@ -79,7 +79,7 @@ export default function HomeScreen() {
       if (!autoOpenChecked) {
         const here = await detecting;
         if (!alive || autoOpenChecked) return; // a newer run took over, or the user tapped something
-        const today = workoutForDay(new Date(), here);
+        const today = workoutForDay(undefined, here); // today (simulated in dev)
         const open = today && (!active || active.workoutId === today.id) && !(await doneToday(today.id));
         if (!alive || autoOpenChecked) return;
         autoOpenChecked = true;

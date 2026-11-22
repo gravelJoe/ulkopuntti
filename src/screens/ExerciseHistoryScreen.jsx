@@ -7,14 +7,14 @@ import { weeklyHistory } from '../workout/progression.js';
 import { planNextTime } from '../workout/session.js';
 import { INCREASE_DEFAULT } from '../config/workouts.js';
 import { formatWeight } from '../utils/format.js';
+import { DateTime } from 'luxon';
+import { LOCALE, nowISO } from '../utils/dates.js';
 import { InsetGroup, LargeTitle, ListRow, NavBar } from '../components/ui.jsx';
 
 export const RESULT_LABEL = { success: 'Go up', neutral: 'Repeat', fail: 'Go down' };
 const parseKg = (text) => Number(String(text).replace(',', '.').trim());
-const weekLabel = (key) => {
-  const [y, m, d] = key.split('-').map(Number);
-  return `Week of ${new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
-};
+const weekLabel = (key) =>
+  `Week of ${DateTime.fromISO(key).toLocaleString({ day: 'numeric', month: 'short' }, { locale: LOCALE })}`;
 
 /**
  * One indoor exercise: what's planned for next time, and its weekly history.
@@ -89,7 +89,7 @@ export default function ExerciseHistoryScreen() {
         progression: {
           increase: old.increase ?? INCREASE_DEFAULT,
           ...old,
-          anchor: { weight: Math.round(weight * 100) / 100, at: new Date().toISOString() },
+          anchor: { weight: Math.round(weight * 100) / 100, at: nowISO() },
         },
       };
     });

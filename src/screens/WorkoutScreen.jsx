@@ -129,6 +129,23 @@ export default function WorkoutScreen() {
     });
   }
 
+  /** Dev only: tick every remaining set, then end the workout like the last real tick does (no rest timer). */
+  function tickAllSets() {
+    let after = session;
+    session.slots.forEach((slot, s) =>
+      slot.sets[slot.selected].forEach((done, i) => {
+        if (!done) after = sessionReducer(after, { type: 'toggleSet', slot: s, index: i });
+      }),
+    );
+    dispatch({ type: 'load', session: after });
+    rest.skip();
+    if (progressive) {
+      setTimeout(() => finishRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 250);
+    } else {
+      handleFinish(after, { auto: true });
+    }
+  }
+
   // Leaving keeps the workout in progress (resumable from Home) — unless nothing was done yet.
   async function handleBack() {
     if (!started) await clearDraft();
@@ -253,6 +270,11 @@ export default function WorkoutScreen() {
           >
             {progressive ? 'Save workout' : 'Finish workout'}
           </button>
+          {import.meta.env.DEV && done < total && (
+            <button className="button-secondary dev-tick-all" style={{ marginTop: 12, width: '100%' }} onClick={tickAllSets}>
+              Tick all sets (dev)
+            </button>
+          )}
           {!started && (
             <p className="finish-note">
               {progressive ? 'Mark a set or a result first.' : 'Mark at least one set done to finish.'}

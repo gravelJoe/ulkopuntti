@@ -227,6 +227,10 @@
 .exercise-result {
   margin-top: 14px;
 }
+.detail-result {
+  width: 100%;
+  margin-top: 10px;
+}
 
 /* ── WeightStepper ──────────────────────────────────────────── */
 .stepper {

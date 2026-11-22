@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { exerciseName, getWorkout } from '../program/store.js';
-import { deleteSession, listSessions } from '../data/repository.js';
+import { deleteSession, isGuest, listSessions, saveSession } from '../data/repository.js';
 import { formatDuration, formatLongDate, formatTime, formatWeight, formatWeightChange } from '../utils/format.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
-import { InsetGroup, LargeTitle, ListRow, NavBar } from '../components/ui.jsx';
+import { InsetGroup, LargeTitle, ListRow, NavBar, SegmentedControl } from '../components/ui.jsx';
+
+const RESULTS = [
+  { value: 'success', label: 'Go up' },
+  { value: 'neutral', label: 'Repeat' },
+  { value: 'fail', label: 'Go down' },
+];
 
 export default function SessionDetailScreen() {
   const { sessionId } = useParams();
@@ -13,6 +19,8 @@ export default function SessionDetailScreen() {
   const justFinished = useLocation().state?.justFinished;
   const [data, setData] = useState(undefined); // undefined = loading, null = not found
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -21,11 +29,12 @@ export default function SessionDetailScreen() {
       const i = all.findIndex((s) => s.id === sessionId);
       if (i < 0) return setData(null);
       // Sessions are newest first, so everything after i is older.
+      // Entries with no set done (e.g. a Go down without lifting) aren't a weight.
       const older = all.slice(i + 1);
+      const lifted = (e, exerciseId) => e.exerciseId === exerciseId && e.sets.some(Boolean);
       const previousWeight = (exerciseId) =>
-        older.find((s) => s.exercises.some((e) => e.exerciseId === exerciseId))?.exercises.find(
-          (e) => e.exerciseId === exerciseId,
-        ).weight;
+        older.find((s) => s.exercises.some((e) => lifted(e, exerciseId)))?.exercises.find((e) => lifted(e, exerciseId))
+          .weight;
       setData({ session: all[i], previousWeight });
     }, (err) => alive && setError(err.message));
     return () => {
@@ -47,6 +56,32 @@ export default function SessionDetailScreen() {
 
   const { session, previousWeight } = data;
   const workoutName = getWorkout(session.workoutId)?.name ?? session.workoutId;
+  // Indoor workouts of logged-in users: the result of each exercise can be changed.
+  const editable = session.place === 'indoor' && !isGuest();
+
+  /**
+   * Change one exercise's result. The stored workout is sent back unchanged
+   * apart from that result (same id and finishedAt), so it stays in the same
+   * week and place in the list; the server updates it in place.
+   */
+  async function changeOutcome(exerciseId, outcome) {
+    const before = session;
+    const updated = {
+      ...session,
+      exercises: session.exercises.map((e) => (e.exerciseId === exerciseId ? { ...e, outcome } : e)),
+    };
+    setData((d) => ({ ...d, session: updated }));
+    setSaving(true);
+    setSaveError('');
+    try {
+      await saveSession(updated);
+    } catch (err) {
+      setData((d) => ({ ...d, session: before }));
+      setSaveError(`Couldn't save the result: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleDelete() {
     const ok = await confirm({
@@ -104,10 +139,27 @@ export default function SessionDetailScreen() {
                   <span className="stepper-unit">kg</span>
                 </div>
               </div>
+              {editable && (
+                <div className="detail-result">
+                  <SegmentedControl
+                    label={`${exerciseName(ex.exerciseId)} result`}
+                    options={RESULTS}
+                    value={ex.outcome ?? null}
+                    disabled={saving}
+                    onChange={(value) => value !== ex.outcome && changeOutcome(ex.exerciseId, value)}
+                  />
+                </div>
+              )}
             </ListRow>
           );
         })}
       </InsetGroup>
+
+      {saveError && (
+        <p className="form-error" role="alert">
+          {saveError}
+        </p>
+      )}
 
       {justFinished && (
         <div className="detail-actions">

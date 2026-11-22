@@ -1155,6 +1155,20 @@ position in the list, and the next workout's plan line reflects the new result.
         [server/src/routes/README.md](../../server/src/routes/README.md): the
         new fields and limits.
 
+### Phase 8 (added after approval): Exercise progress view
+
+Decided by the author on 2026-11-22: build after phase 6.
+
+*   **What:** a per-exercise progress view, reached by tapping an exercise on
+    the Progression screen. It lists that exercise's saved sessions, newest
+    first, with the date, weight, sets done and result.
+*   **The hold label per week** comes from running `planFor` as of that date.
+*   **No database change:** everything comes from the saved workouts
+    (`getSessionHistory()`).
+*   **Open:** whether to also save the plan shown at the time (`planned`,
+    `rounded`, `reason`) on each saved exercise, as a read-only record. To be
+    decided before phase 8.
+
 ### Verification Plan
 
 *   **Build:** `npm run build` at the end of every phase.

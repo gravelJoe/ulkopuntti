@@ -13,6 +13,8 @@ const exerciseSchema = new mongoose.Schema(
       ),
       default: undefined,
     },
+    // Indoor progression: the result the user marked (Go up / Repeat / Go down).
+    outcome: { type: String, enum: ['success', 'neutral', 'fail'], default: undefined },
   },
   { _id: false },
 );

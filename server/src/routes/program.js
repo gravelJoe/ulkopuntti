@@ -39,6 +39,22 @@ function cleanPlates(list, what) {
   });
 }
 
+/** Indoor progression settings: { increase, anchor?: { weight, at } }. */
+function cleanProgression(p) {
+  const increase = Number(p?.increase);
+  if (!isPlateWeight(increase)) throw bad('Increase must be 0.05–50 kg');
+  const result = { increase };
+  if (p.anchor !== undefined && p.anchor !== null) {
+    const weight = Number(p.anchor?.weight);
+    const at = new Date(p.anchor?.at);
+    if (!(weight >= 0 && weight <= 999) || typeof p.anchor?.at !== 'string' || Number.isNaN(at.getTime())) {
+      throw bad('Invalid planned weight');
+    }
+    result.anchor = { weight, at: at.toISOString() };
+  }
+  return result;
+}
+
 /** Validate and copy only known fields. Throws a 400 error on bad input. */
 function clean(body) {
   if (!body || !Array.isArray(body.exercises) || !Array.isArray(body.workouts)) throw bad('Invalid program');
@@ -64,6 +80,8 @@ function clean(body) {
       sets,
       step,
       archived: Boolean(e.archived),
+      // Weekly progression is indoor only; it's dropped for outdoor exercises.
+      ...(place === 'indoor' && e.progression ? { progression: cleanProgression(e.progression) } : {}),
     };
   });
 
@@ -137,7 +155,13 @@ function clean(body) {
   const trainingMode = ['outdoor', 'indoor', 'both'].includes(body.trainingMode) ? body.trainingMode : 'outdoor';
   const ownPlates = cleanPlates(body.ownPlates, 'own plates');
 
-  return { exercises, workouts, gyms, ownPlates, trainingMode };
+  // Weeks a lowered weight is held after a Go down. Missing = 1 (the default).
+  const holdWeeks = body.holdWeeks === undefined || body.holdWeeks === null ? 1 : body.holdWeeks;
+  if (!Number.isInteger(holdWeeks) || holdWeeks < 0 || holdWeeks > Number.MAX_SAFE_INTEGER) {
+    throw bad('Hold must be a whole number of weeks');
+  }
+
+  return { exercises, workouts, gyms, ownPlates, trainingMode, holdWeeks };
 }
 
 // null until the user saves their first change — the app then uses the default program.

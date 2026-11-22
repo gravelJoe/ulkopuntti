@@ -5,6 +5,8 @@ import { requireAuth } from '../middleware/auth.js';
 const router = Router();
 router.use(requireAuth);
 
+const OUTCOMES = ['success', 'neutral', 'fail'];
+
 // Every query is scoped to req.userId — users only ever see their own data.
 
 router.get('/', async (req, res) => {
@@ -35,6 +37,8 @@ router.post('/', async (req, res) => {
           weight: e?.weight,
           sets: e?.sets,
           ...(e?.bar ? { bar: { name: e.bar.name, weight: e.bar.weight } } : {}),
+          // Indoor progression result; anything else is dropped.
+          ...(OUTCOMES.includes(e?.outcome) ? { outcome: e.outcome } : {}),
         }))
       : [],
   };

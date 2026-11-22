@@ -4,7 +4,8 @@
 //   if (!(await confirm({ title, message, confirmLabel, destructive }))) return;
 //
 // Resolves true (confirm button), false (cancel button) or null (dismissed
-// by tapping outside / Escape). Pass cancelLabel: null for a one-button alert.
+// by tapping outside / Escape, or replaced by a newer dialog). Pass
+// cancelLabel: null for a one-button alert.
 
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 
@@ -14,15 +15,26 @@ export const useConfirm = () => useContext(ConfirmContext);
 
 export function ConfirmProvider({ children }) {
   const [dialog, setDialog] = useState(null);
+  // The open dialog's resolver, so a new dialog can answer the one it replaces.
+  const pending = useRef(null);
 
   const confirm = useCallback(
-    (options) => new Promise((resolve) => setDialog({ ...options, resolve })),
+    (options) =>
+      new Promise((resolve) => {
+        // Only one dialog at a time: a replaced dialog counts as dismissed.
+        pending.current?.(null);
+        pending.current = resolve;
+        setDialog({ ...options, resolve });
+      }),
     [],
   );
 
   function close(result) {
-    dialog.resolve(result);
-    setDialog(null);
+    const { resolve } = dialog;
+    resolve(result);
+    // Only remove this dialog if it is still the one showing: a late tap on a
+    // dialog that was just replaced must not remove the new one.
+    setDialog((d) => (d?.resolve === resolve ? null : d));
   }
 
   return (

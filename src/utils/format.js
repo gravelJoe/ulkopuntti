@@ -22,9 +22,9 @@ export function isToday(iso) {
   return Boolean(iso) && startOfDay(new Date(iso)) === startOfDay(new Date());
 }
 
-/** 60 → "60", 62.5 → "62.5" */
+/** 60 → "60", 62.5 → "62.5", 1.25 → "1.25" (up to two decimals, no trailing zeros) */
 export function formatWeight(kg) {
-  return Number.isInteger(kg) ? String(kg) : kg.toFixed(1);
+  return String(Math.round(kg * 100) / 100);
 }
 
 const longDateFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });

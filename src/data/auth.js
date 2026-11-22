@@ -96,10 +96,16 @@ export function logout() {
 /** Check the saved token is still valid (a 401 logs out via the http handler). */
 export async function verify() {
   if (!state) return;
+  const token = state.token;
   try {
     const { user } = await apiFetch('/api/auth/me');
+    // Logged out (or into another account) while the request was in flight.
+    if (state?.token !== token) return;
+    const changed = user.username !== state.user.username;
     state = { ...state, user };
     persist();
+    // E.g. the account was renamed: show the new name right away.
+    if (changed) listeners.forEach((fn) => fn());
   } catch {
     /* offline: stay logged in; 401 is handled below */
   }

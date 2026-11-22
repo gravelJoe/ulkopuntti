@@ -13,6 +13,8 @@ export const REST_FAST_FORWARD_SECONDS = 30; // the "−30 s" button on the rest
 export const REST_EXTEND_SECONDS = 10; // the "+10 s" button on the rest timer
 export const WEIGHT_STEP = 5; // kg per tap on − / +, default for new exercises
 export const DEFAULT_WEIGHT = 20; // kg, used when an exercise has no history
+export const INCREASE_DEFAULT = 1; // kg per week, indoor progression (per exercise, editable)
+export const HOLD_WEEKS_DEFAULT = 1; // weeks a lowered weight is held after a Go down
 
 // Starting exercise library. Keys are the ids stored in history.
 export const exercises = {

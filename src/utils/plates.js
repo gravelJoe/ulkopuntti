@@ -101,3 +101,51 @@ export function solvePlates(total, bar, plates) {
   }
   return { exact: false, tooLight: false, perSide: [], lower, higher };
 }
+
+// ── Loadable weights (for weekly progression) ────────────────
+//
+// ctx describes what can be loaded:
+//   { kind: 'barbell', bar, plates }  — bar is the bar's weight in kg
+//   { kind: 'machine', step }         — the weight stack moves in steps
+// The three helpers below expect a usable ctx (see isUsableCtx) and return
+// a weight, or null when nothing is loadable in that direction.
+
+const round2 = (kg) => Math.round(kg * 100) / 100;
+const EPS = 1e-9;
+
+/** False when there is nothing to round against (no bar, no plates, no step). */
+export function isUsableCtx(ctx) {
+  if (ctx?.kind === 'machine') return ctx.step > 0;
+  if (ctx?.kind === 'barbell') {
+    return typeof ctx.bar === 'number' && ctx.bar >= 0 && (ctx.plates ?? []).some((p) => p.pairs > 0);
+  }
+  return false;
+}
+
+/** Smallest loadable weight ≥ kg (the bar itself when kg is below the bar). */
+export function loadableAtLeast(kg, ctx) {
+  if (ctx.kind === 'machine') return round2(Math.ceil(kg / ctx.step - EPS) * ctx.step);
+  if (kg <= ctx.bar) return round2(ctx.bar);
+  const r = solvePlates(kg, ctx.bar, ctx.plates);
+  return r.exact ? round2(kg) : r.higher;
+}
+
+/** Largest loadable weight ≤ kg, or null below the bar (or below 0 on a machine). */
+export function loadableAtMost(kg, ctx) {
+  if (ctx.kind === 'machine') {
+    const w = Math.floor(kg / ctx.step + EPS) * ctx.step;
+    return w < 0 ? null : round2(w);
+  }
+  if (kg < ctx.bar) return null;
+  const r = solvePlates(kg, ctx.bar, ctx.plates);
+  return r.exact ? round2(kg) : r.lower;
+}
+
+/** The loadable weight closest to kg; on a tie the lower one. */
+export function loadableNearest(kg, ctx) {
+  const lo = loadableAtMost(kg, ctx);
+  const hi = loadableAtLeast(kg, ctx);
+  if (lo === null) return hi;
+  if (hi === null) return lo;
+  return hi - kg < kg - lo ? hi : lo;
+}

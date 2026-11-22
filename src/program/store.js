@@ -9,10 +9,14 @@
 //   gyms:      [{ id, name, lat?, lon?, radius, plateSource ('gym'|'own'), plates, bars }]
 //   ownPlates: [{ weight, pairs }]                 (the user's own plate set)
 //   trainingMode: 'outdoor' | 'indoor' | 'both'   (both = GPS picks the place)
+//   holdWeeks: weeks a lowered weight is held after a Go down (0 = no hold)
+//   Indoor exercises may carry progression: { increase, anchor?: { weight, at } }
 // "Deleting" archives, so History can still show old names.
 
 import { useSyncExternalStore } from 'react';
 import {
+  HOLD_WEEKS_DEFAULT,
+  INCREASE_DEFAULT,
   SETS_PER_EXERCISE,
   WEIGHT_STEP,
   exercises as templateExercises,
@@ -52,6 +56,7 @@ export function defaultProgram() {
     gyms: [],
     ownPlates: [],
     trainingMode: 'outdoor',
+    holdWeeks: HOLD_WEEKS_DEFAULT,
   };
 }
 
@@ -80,7 +85,8 @@ function normalize(next) {
         placeOf.set(id, place);
       } else if (placeOf.has(id)) {
         const orig = exercises.find((e) => e.id === id);
-        const copy = { ...orig, id: `${id}_${place}`.slice(0, 40), place };
+        const { progression: _p, ...rest } = orig; // a copy starts without progression
+        const copy = { ...rest, id: `${id}_${place}`.slice(0, 40), place };
         if (!placeOf.has(copy.id)) exercises = [...exercises, copy];
         placeOf.set(copy.id, place);
         remap.set(`${place}:${id}`, copy.id);
@@ -92,6 +98,12 @@ function normalize(next) {
     place: w.place ?? 'outdoor',
     slots: w.slots.map((s) => ({ options: s.options.map((id) => remap.get(`${w.place ?? 'outdoor'}:${id}`) ?? id) })),
   }));
+  // Weekly progression is indoor only.
+  exercises = exercises.map((e) => {
+    if (e.place === 'indoor' || !e.progression) return e;
+    const { progression: _p, ...rest } = e;
+    return rest;
+  });
   return {
     ...next,
     exercises,
@@ -99,6 +111,7 @@ function normalize(next) {
     gyms: (next.gyms ?? []).map((g) => ({ plateSource: 'gym', plates: [], bars: [], radius: 200, lat: null, lon: null, ...g })),
     ownPlates: next.ownPlates ?? [],
     trainingMode: next.trainingMode ?? 'outdoor',
+    holdWeeks: next.holdWeeks ?? HOLD_WEEKS_DEFAULT,
   };
 }
 
@@ -163,6 +176,13 @@ export const ownPlates = () => program.ownPlates;
 export const platesAt = (gym) => (gym?.plateSource === 'own' ? program.ownPlates : gym?.plates ?? []);
 export const hasLocation = (gym) => gym?.lat !== null && gym?.lat !== undefined && gym?.lon !== null && gym?.lon !== undefined;
 export const trainingMode = () => program.trainingMode;
+export const holdWeeks = () => program.holdWeeks;
+/** { increase, anchor? } for an indoor exercise (increase defaults to 1 kg); null otherwise. */
+export function progressionOf(id) {
+  const e = exerciseById.get(id);
+  if (!e || e.place !== 'indoor') return null;
+  return { increase: INCREASE_DEFAULT, ...e.progression };
+}
 
 /** The active workout at this place scheduled for this date's weekday, or null. */
 export const workoutForDay = (date = new Date(), place = 'outdoor') =>

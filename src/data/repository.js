@@ -13,7 +13,18 @@ import { guestAdapter } from './adapters/guest.js';
 let adapter = guestAdapter;
 let scope = 'guest';
 const draftKey = () => `puntti.draft.v2:${scope}`;
-const lastWeightsKey = (place, gymId) => `puntti.lastWeights.v3:${scope}:${place}:${gymId ?? '-'}`;
+const historyKey = () => `puntti.history.v1:${scope}`;
+
+// The old per-place last-weights cache is retired (last weights now come from
+// the history cache). Remove its leftover keys once when the app loads.
+try {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('puntti.lastWeights.v3:')) localStorage.removeItem(key);
+  }
+} catch {
+  /* storage unavailable */
+}
 
 export function setAdapter(next, nextScope) {
   adapter = next;
@@ -105,30 +116,55 @@ export function moveDraft(fromScope, toScope) {
 // ── Derived queries ──────────────────────────────────────────
 
 /**
- * { exerciseId: { weight, bar } } — from the most recent session containing
- * each exercise, outdoors or at this indoor gym (weights are per gym indoors).
- * Cached on the device, so prefill still works without a connection.
+ * { sessions, offline } — all finished sessions, newest first.
+ * Logged in: a trimmed copy is cached on the device, so plans and last weights
+ * still work without a connection. Offline it returns that cache; with no
+ * cache, sessions is null (so callers can tell "no data" from "no workouts").
  */
-export async function getLastWeights(place = 'outdoor', gymId = null) {
+export async function getSessionHistory() {
   try {
     const sessions = await adapter.listSessions();
-    const result = {};
-    for (const s of sessions) {
-      if ((s.place ?? 'outdoor') !== place) continue;
-      if (place === 'indoor' && (s.gymId ?? null) !== gymId) continue;
-      for (const ex of s.exercises) {
-        if (!(ex.exerciseId in result)) result[ex.exerciseId] = { weight: ex.weight, bar: ex.bar ?? null };
+    if (!adapter.isGuest) {
+      const trimmed = sessions.map((s) => ({
+        finishedAt: s.finishedAt,
+        place: s.place ?? 'outdoor',
+        gymId: s.gymId ?? null,
+        exercises: s.exercises.map((e) => ({
+          exerciseId: e.exerciseId,
+          weight: e.weight,
+          sets: e.sets,
+          ...(e.bar ? { bar: e.bar } : {}),
+          ...(e.outcome ? { outcome: e.outcome } : {}),
+        })),
+      }));
+      try {
+        localStorage.setItem(historyKey(), JSON.stringify(trimmed));
+      } catch {
+        /* storage full or unavailable: keep the old cache */
       }
     }
-    try {
-      localStorage.setItem(lastWeightsKey(place, gymId), JSON.stringify(result));
-    } catch {
-      /* ignore */
-    }
-    return result;
+    return { sessions, offline: false };
   } catch {
-    return readJson(lastWeightsKey(place, gymId)) ?? {};
+    return { sessions: readJson(historyKey()), offline: true };
   }
+}
+
+/**
+ * { exerciseId: { weight, bar } } — from the most recent session containing
+ * each exercise, outdoors or at this indoor gym (weights are per gym indoors).
+ * Exercises with no set ticked are skipped (a zero-set result isn't a weight).
+ */
+export function lastWeightsFrom(sessions, place = 'outdoor', gymId = null) {
+  const result = {};
+  for (const s of sessions ?? []) {
+    if ((s.place ?? 'outdoor') !== place) continue;
+    if (place === 'indoor' && (s.gymId ?? null) !== gymId) continue;
+    for (const ex of s.exercises) {
+      if (ex.exerciseId in result || !ex.sets?.some(Boolean)) continue;
+      result[ex.exerciseId] = { weight: ex.weight, bar: ex.bar ?? null };
+    }
+  }
+  return result;
 }
 
 /** { workoutId: ISO date } of the last finished session of each workout. */

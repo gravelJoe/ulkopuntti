@@ -4,7 +4,7 @@
 
 import { DEFAULT_WEIGHT } from '../config/workouts.js';
 import { exerciseSets, getGym, isBarbell } from '../program/store.js';
-import { getLastWeights } from '../data/repository.js';
+import { getSessionHistory, lastWeightsFrom } from '../data/repository.js';
 
 export const slotOptions = (slot) => slot.options ?? slot.choice ?? [slot.exercise];
 
@@ -37,7 +37,8 @@ function initialBar(gym, lastBar) {
 /** gymId: indoor gym (weights, bars and plates are per gym); null outdoors or if unknown. */
 export async function createSession(workout, gymId = null) {
   const place = workout.place ?? 'outdoor';
-  const found = await getLastWeights(place, place === 'indoor' ? gymId : null);
+  const { sessions } = await getSessionHistory();
+  const found = lastWeightsFrom(sessions, place, place === 'indoor' ? gymId : null);
   const last = (id) => found[id]?.weight ?? null;
   const gym = place === 'indoor' ? getGym(gymId) : null;
 

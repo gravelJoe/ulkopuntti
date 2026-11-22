@@ -19,6 +19,7 @@ import ExerciseEditScreen from './screens/ExerciseEditScreen.jsx';
 import PlacesScreen from './screens/PlacesScreen.jsx';
 import GymEditScreen from './screens/GymEditScreen.jsx';
 import OwnPlatesScreen from './screens/OwnPlatesScreen.jsx';
+import ExerciseHistoryScreen from './screens/ExerciseHistoryScreen.jsx';
 
 // Every new screen starts at the top (the browser otherwise keeps the
 // previous screen's scroll position). Layout effect = no visible jump.
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/workout/:workoutId" element={<WorkoutScreen />} />
             <Route path="/history" element={<HistoryScreen />} />
             <Route path="/history/:sessionId" element={<SessionDetailScreen />} />
+            <Route path="/history/exercise/:exerciseId" element={<ExerciseHistoryScreen />} />
             <Route path="/account/password" element={<ChangePasswordScreen />} />
             <Route path="/settings/workouts" element={<WorkoutsScreen />} />
             <Route path="/settings/workouts/:editId" element={<WorkoutEditScreen />} />

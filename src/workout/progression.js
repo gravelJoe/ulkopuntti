@@ -145,3 +145,48 @@ export function roundPlan(plan, increase, ctx) {
 
   return { weight: loadableNearest(base, ctx) ?? base, cantLoadMore: false };
 }
+
+/**
+ * Weekly history of one exercise for the History → By exercise view.
+ * One row per week that has a counted session (the exercise with a result),
+ * newest first; weeks after the current one are left out. Only indoor
+ * sessions are used (the function filters them itself).
+ *
+ * Row: { week: 'YYYY-MM-DD' (Monday), session, exercise, outcome,
+ *        holdWeek (hold state going into that week, 0 = none), extraSessions }
+ * extraSessions: other sessions that week containing the exercise.
+ */
+export function weeklyHistory({ exerciseId, holdWeeks: holdSetting, history, now = new Date() }) {
+  const holdWeeks = holdSetting ?? HOLD_WEEKS_DEFAULT;
+  const indoor = history.filter((s) => s.place === 'indoor');
+  const thisWeek = weekKey(now);
+  const weeks = new Map(); // weekKey → { all, counted: { session, exercise } | null }
+  for (const session of indoor) {
+    const exercise = findExercise(session, exerciseId);
+    if (!exercise) continue;
+    const key = weekKey(session.finishedAt);
+    if (key > thisWeek) continue;
+    const entry = weeks.get(key) ?? { all: 0, counted: null };
+    entry.all += 1;
+    if (exerciseOutcome(exercise) && (!entry.counted || new Date(session.finishedAt) > new Date(entry.counted.session.finishedAt))) {
+      entry.counted = { session, exercise };
+    }
+    weeks.set(key, entry);
+  }
+  return [...weeks.entries()]
+    .filter(([, e]) => e.counted)
+    .sort(([a], [b]) => (a < b ? 1 : -1))
+    .map(([week, { all, counted }]) => {
+      const [y, m, d] = week.split('-').map(Number);
+      const monday = new Date(y, m - 1, d); // 00:00 local: replay covers only earlier weeks
+      const { holdWeek } = planFor({ exerciseId, progression: null, holdWeeks, history: indoor, now: monday });
+      return {
+        week,
+        session: counted.session,
+        exercise: counted.exercise,
+        outcome: exerciseOutcome(counted.exercise),
+        holdWeek,
+        extraSessions: all - 1,
+      };
+    });
+}

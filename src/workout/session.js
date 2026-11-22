@@ -7,6 +7,7 @@ import { exerciseSets, getGym, holdWeeks, isBarbell, progressionOf } from '../pr
 import { getSessionHistory, isGuest, lastWeightsFrom } from '../data/repository.js';
 import { planFor, plannedWeight, roundPlan } from './progression.js';
 import { ctxFor } from './rounding.js';
+import { isUsableCtx } from '../utils/plates.js';
 
 export const slotOptions = (slot) => slot.options ?? slot.choice ?? [slot.exercise];
 
@@ -53,7 +54,8 @@ function makePlan(exerciseId, history, gymId, barId, offline, now) {
   const settings = progressionOf(exerciseId);
   if (!settings) return null;
   const plan = planFor({ exerciseId, progression: settings, holdWeeks: holdWeeks(), history, now });
-  const { weight, cantLoadMore } = roundPlan(plan, settings.increase, ctxFor(exerciseId, gymId, barId));
+  const ctx = ctxFor(exerciseId, gymId, barId);
+  const { weight, cantLoadMore } = roundPlan(plan, settings.increase, ctx);
   return {
     ...plan,
     increase: settings.increase,
@@ -61,7 +63,19 @@ function makePlan(exerciseId, history, gymId, barId, offline, now) {
     rounded: weight,
     cantLoadMore,
     offline,
+    unrounded: !isUsableCtx(ctx), // no gym, bar or plates to round against
   };
+}
+
+/**
+ * The plan for an exercise's next session, exactly as the workout card would
+ * show it: the bar used last time at this gym (by name, else the gym's first),
+ * then planFor + rounding. Shared by createSession and History → By exercise.
+ * indoorHistory: indoor sessions, newest first. Returns { plan, barId }.
+ */
+export function planNextTime(exerciseId, indoorHistory, gymId, lastBar, { offline = false, now = new Date() } = {}) {
+  const barId = isBarbell(exerciseId) ? initialBar(getGym(gymId), lastBar)?.id ?? null : null;
+  return { plan: makePlan(exerciseId, indoorHistory, gymId, barId, offline, now), barId };
 }
 
 /** gymId: indoor gym (weights, bars and plates are per gym); null outdoors or if unknown. */
@@ -88,7 +102,7 @@ export async function createSession(workout, gymId = null) {
       // Barbell exercises: chosen bar id (per exercise), null otherwise.
       const bar = mapOptions(options, (id) => (isBarbell(id) ? initialBar(gym, found[id]?.bar)?.id ?? null : null));
       const plan = mapOptions(options, (id) =>
-        progression && sessions ? makePlan(id, indoorHistory, gymId, bar[id], offline, now) : null,
+        progression && sessions ? planNextTime(id, indoorHistory, gymId, found[id]?.bar, { offline, now }).plan : null,
       );
       return {
         options,

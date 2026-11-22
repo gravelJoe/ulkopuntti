@@ -231,6 +231,19 @@
   width: 100%;
   margin-top: 10px;
 }
+.history-views {
+  margin-bottom: 20px;
+}
+.progression-edit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.progression-edit .form-input {
+  flex: 1;
+  min-width: 0;
+}
 
 /* ── WeightStepper ──────────────────────────────────────────── */
 .stepper {

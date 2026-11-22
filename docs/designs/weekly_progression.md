@@ -181,13 +181,16 @@ Decisions made during drafting that are not obvious from the Goals:
 *   **Then**: Next week builds on 47.5 kg, not 50 kg. If you train rows again
     the same week, that session also starts from 47.5 kg.
 
-### CUJ 6: Seeing and editing the plan in Settings
+### CUJ 6: Seeing an exercise's progress and changing the plan
 
 *   **Given**: You have several indoor exercises.
-*   **When**: You open the Progression screen in Settings.
-*   **Then**: You see each exercise's planned weight and hold status
-    ("Hold 1 of 2" or "Normal"). You can change the planned weight; a running
-    hold stays in place.
+*   **When**: You open History → By exercise (or Progress on Home) and tap an
+    exercise.
+*   **Then**:
+    *   You see "Next time": the weight you'll load, with its status
+        ("Hold 1 of 2" or "Normal") and the reason.
+    *   Below it are the weekly rows: weight, sets, result and hold label.
+    *   You can change the planned weight; a running hold stays in place.
 
 ## Technical Plan (Architecture)
 
@@ -281,7 +284,7 @@ you saved is what next week builds on.
 
 **Planned weight.** The weight `planFor` gives before gym rounding: the base
 after applying the action (for example base 40 + Go up 1 kg = 41 kg planned).
-This is what the Progression screen shows and what an anchor sets.
+This is what an anchor sets (History → By exercise → Change planned weight).
 
 **Outcome.** Each saved indoor exercise stores `outcome`. The saved result is
 always the button left selected:
@@ -437,15 +440,19 @@ hand-edited, becomes next week's base (see Risks: rounding carries over).
         current planned weight. For example "+1 kg → +2.5 kg at Gym A".
 *   **Settings screen.** A **Hold after a fail** setting in whole weeks
     (0 = no hold, default 1), saved in the program so both phones share it.
-*   **Progression screen** (new, opened from Settings). Lists every active
-    indoor exercise, showing:
-    *   its planned weight (see Concepts);
-    *   its status ("Normal", "Hold 1 of 2");
-    *   the reason for the last change.
+*   **History → By exercise** (a switch on the History screen; also reached
+    from **Progress** on Home when training indoors). It lists the active
+    indoor exercises with their latest weight and result.
+*   **Exercise detail:**
+    *   **"Next time":** worked out exactly like the workout card, for the
+        gym and bar used last time.
+    *   **Change planned weight:** replaces the exercise's single `anchor`
+        (`weight`, time) in its progression settings. It does not cancel a
+        running hold.
+    *   **Weekly rows** follow.
 
-    Tapping the weight lets you set a new planned weight. This replaces the
-    exercise's single `anchor` (`weight`, time) in its progression settings. It
-    does not cancel a running hold.
+    (Changed after approval: this replaces the separate Progression screen,
+    which showed only an unrounded number with no history.)
 
 ### Server changes
 
@@ -561,8 +568,8 @@ Keep today's pre-filled weight. The card only suggests: "Last week ✓, try
 
 ### Alternative E: Fully worked out from history, with no Settings editor
 
-The same approach as the chosen design, but without the Progression screen or
-anchors. The only override is changing the weight on the day.
+The same approach as the chosen design, but without the planned-weight
+editor or anchors. The only override is changing the weight on the day.
 
 *   **Pros**: The smallest stored footprint, nothing to keep in sync, and one
     less screen.
@@ -620,8 +627,9 @@ workout loads the largest weight at or below the plan that the gym can make
     starts (the server returns at most 1000 workouts). That is at most
     1000 workouts × 20 exercises scanned per indoor exercise in the workout,
     well under a million simple steps, done once when the workout starts.
-    There are no extra calls when starting a workout. The Progression screen
-    and the exercise editor each make one history call when opened.
+    There are no extra calls when starting a workout. History → By exercise,
+    the exercise detail and the exercise editor each make one history call
+    when opened.
 *   **Rollout & rollback:**
     *   The server and the app it serves deploy together (Express serves the
         built app). After deploying, reload the app on both phones; see Risks.
@@ -1059,7 +1067,7 @@ offline (DevTools → Network → Offline) it returns the cache with
 **Phase 5 checks:** change a result in History. The workout keeps its date and
 position in the list, and the next workout's plan line reflects the new result.
 
-### Phase 6: Settings, exercise editor, Progression screen and route
+### Phase 6: Settings, exercise editor, exercise history and routes
 
 #### 16. `src/screens/ExerciseEditScreen.jsx` (Modify)
 
@@ -1093,38 +1101,68 @@ position in the list, and the next workout's plan line reflects the new result.
     *   **Hold after a fail** row: a whole-number stepper with an input
         (0 or more; 0 shows "No hold"), saved with `saveProgram` as
         `holdWeeks`.
-    *   **Progression** row linking to `/settings/progression`.
 
-#### 18. `src/screens/ProgressionScreen.jsx` (Create)
+#### 18. `src/screens/HistoryScreen.jsx`, `src/screens/ExerciseHistoryScreen.jsx` (Create) and `src/workout/progression.js`
 
-*   **Type / Scope**: Screen.
-*   **Proposed Changes**:
-    *   Loads `getSessionHistory()` when it opens. It then lists all active
-        indoor exercises. Each row shows:
-        *   the name;
-        *   the planned weight (`plannedWeight(planFor(...), increase)`);
-        *   the status: "Normal", or "Hold *holdWeek* of *holdWeeks*";
-        *   the reason.
-    *   **Editing the planned weight:**
-        *   Tapping the weight opens an inline number input (0–999, a comma
-            is accepted).
-        *   Saving writes `progression: { increase: old?.increase ??
-            INCREASE_DEFAULT, ...old, anchor: { weight, at: new
-            Date().toISOString() } }` with `saveProgram`.
-    *   Guests are redirected to `/settings`, like the other program editors.
+*   **Type / Scope**: Screens and a pure helper. This replaces the earlier
+    Progression screen (changed after approval).
+*   **`weeklyHistory({ exerciseId, holdWeeks, history, now })`**
+    (progression.js, pure):
+    *   It filters to indoor sessions itself.
+    *   Rows are only weeks with a counted session (one with a result),
+        newest first. Weeks after the current one are left out.
+    *   `extraSessions` = the other sessions that week that contain the
+        exercise.
+    *   `holdWeek` = `planFor({ …, progression: null, now: Monday 00:00 of
+        that week }).holdWeek`.
+*   **`planNextTime(exerciseId, indoorHistory, gymId, lastBar, { offline,
+    now })`** (session.js): the bar used last time, then the plan and
+    rounding. `createSession` and the exercise detail both use it, so they
+    show the same weight. `plan.unrounded` is true when there is no gym, bar
+    or plates to round against.
+*   **HistoryScreen:**
+    *   A **By workout / By exercise** switch, kept in `?view=exercise`.
+    *   By workout keeps `listSessions()`, with its error and retry.
+    *   By exercise uses `getSessionHistory()`:
+        *   active indoor exercises with their latest weight and result, or
+            "Not done yet";
+        *   "No indoor exercises yet" when there are none;
+        *   "No saved history on this phone yet" when offline with no cache;
+        *   an offline note.
+    *   Only the open view loads.
+*   **ExerciseHistoryScreen** (`/history/exercise/:exerciseId`):
+    *   An unknown or non-indoor id redirects to `/history?view=exercise`.
+    *   An archived exercise shows its history only.
+    *   **"Next time":** the gym and bar of the latest session where the
+        exercise was lifted, with the status and reason. If the plan could
+        not be rounded, it shows the unrounded weight plus a note.
+    *   **Change planned weight:** writes `progression: { increase:
+        old?.increase ?? INCREASE_DEFAULT, ...old, anchor: { weight, at } }`.
+    *   **Weekly rows:** week, weight, sets, result, "Hold n of N" and
+        "+n more". A row opens `/history/:id` when the session has an id
+        (offline cached sessions don't).
+    *   Empty state: "No weeks with a result yet".
+    *   Guests are redirected to `/history`.
 
-#### 19. `src/App.jsx` (Modify)
+#### 19. `src/App.jsx` and `src/screens/HomeScreen.jsx` (Modify)
 
-*   **Type / Scope**: Routes.
-*   **Proposed Changes**: Add `/settings/progression` → `ProgressionScreen`
-    inside the `entered` route group. The screen redirects guests itself.
+*   **Proposed Changes:**
+    *   Add the route `/history/exercise/:exerciseId`. The static `exercise`
+        segment outranks `:sessionId` in react-router 7.
+    *   Home shows a **Progress** row (logged in, indoor), which opens
+        `/history?view=exercise`.
 
 **Phase 6 checks:**
 
 *   Change an increase and save; an existing anchor survives.
-*   Set the planned weight on the Progression screen; the next workout uses
-    it, with "Set in Settings".
-*   Set the hold length to 0 and to 2; the Progression statuses follow.
+*   Set the planned weight in History → By exercise → an exercise; the next
+    workout uses it, with "Set in Settings", and a running hold stays.
+*   Set the hold length to 0 and to 2; the "Next time" status follows.
+*   Back from the exercise detail returns to By exercise.
+*   Offline weekly rows can't be tapped.
+*   An archived or unknown exercise link is handled.
+*   Home → Progress opens By exercise.
+*   The old `/settings/progression` link falls back to Home.
 *   The editor's note for a 1.25 kg plate gym reads "+1 kg → +2.5 kg".
 
 ### Phase 7: Documentation
@@ -1148,26 +1186,23 @@ position in the list, and the next workout's plan line reflects the new result.
         `HOLD_WEEKS_DEFAULT` and `INCREASE_DEFAULT`.
     *   [src/components/README.md](../../src/components/README.md): the
         ExerciseCard plan line and result control.
-    *   [src/screens/README.md](../../src/screens/README.md): the new screen,
-        the indoor save flow, the Home banner, and History editing.
-    *   [src/README.md](../../src/README.md): the new route.
+    *   [src/screens/README.md](../../src/screens/README.md): History → By
+        exercise, the exercise detail, the indoor save flow, the Home banner
+        and Progress row, and History editing.
+    *   [src/README.md](../../src/README.md): the new route
+        `/history/exercise/:exerciseId`.
     *   [server/src/models/README.md](../../server/src/models/README.md) and
         [server/src/routes/README.md](../../server/src/routes/README.md): the
         new fields and limits.
 
 ### Phase 8 (added after approval): Exercise progress view
 
-Decided by the author on 2026-11-22: build after phase 6.
+Covered by phase 6, item 18 (History → By exercise and the exercise detail).
 
-*   **What:** a per-exercise progress view, reached by tapping an exercise on
-    the Progression screen. It lists that exercise's saved sessions, newest
-    first, with the date, weight, sets done and result.
-*   **The hold label per week** comes from running `planFor` as of that date.
-*   **No database change:** everything comes from the saved workouts
-    (`getSessionHistory()`).
-*   **Open:** whether to also save the plan shown at the time (`planned`,
-    `rounded`, `reason`) on each saved exercise, as a read-only record. To be
-    decided before phase 8.
+*   **Decided:** the plan shown at the time is not stored. Weekly hold labels
+    are recomputed with today's settings, so after a change to the hold
+    length an old label can differ from what the card said back then.
+    Accepted.
 
 ### Verification Plan
 

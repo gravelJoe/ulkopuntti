@@ -9,7 +9,16 @@ import {
   setRestSeconds,
 } from '../data/preferences.js';
 import { useAuth } from '../hooks/useAuth.js';
-import { activeExercises, activeWorkouts, activeWorkoutsAt, getProgram, indoorGyms, saveProgram, trainingMode } from '../program/store.js';
+import {
+  activeExercises,
+  activeWorkouts,
+  activeWorkoutsAt,
+  getProgram,
+  holdWeeks,
+  indoorGyms,
+  saveProgram,
+  trainingMode,
+} from '../program/store.js';
 import { detectPlaceOnLaunch, resetPlace } from '../program/place.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow, NavBar, SegmentedControl } from '../components/ui.jsx';
@@ -21,6 +30,46 @@ const THEME_OPTIONS = [
 ];
 
 const formatClock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+/** Weeks a lowered weight is held after a Go down (indoor progression), synced with the account. */
+function HoldSetting() {
+  const [weeks, setWeeks] = useState(holdWeeks);
+  const [error, setError] = useState('');
+
+  async function change(next) {
+    const value = Math.max(0, Math.round(next));
+    const before = weeks;
+    setWeeks(value);
+    setError('');
+    try {
+      await saveProgram({ ...getProgram(), holdWeeks: value });
+    } catch (err) {
+      setWeeks(before);
+      setError(err.message);
+    }
+  }
+
+  return (
+    <InsetGroup
+      header="Hold after a fail"
+      footer={error || 'After a Go down, the lower weight stays for this many trained weeks before it can go up again.'}
+      padded
+    >
+      <div className="stepper">
+        <button className="stepper-btn" aria-label="One week less" disabled={weeks <= 0} onClick={() => change(weeks - 1)}>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h14" /></svg>
+        </button>
+        <div className="stepper-value" aria-live="polite">
+          {weeks === 0 ? 'No hold' : weeks}
+          {weeks > 0 && <span className="stepper-unit">{weeks === 1 ? 'week' : 'weeks'}</span>}
+        </div>
+        <button className="stepper-btn" aria-label="One week more" onClick={() => change(weeks + 1)}>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h14M10 3v14" /></svg>
+        </button>
+      </div>
+    </InsetGroup>
+  );
+}
 
 function RestTimerSetting() {
   const [seconds, setSeconds] = useState(getRestSeconds);
@@ -198,6 +247,8 @@ export default function SettingsScreen({ theme, setTheme }) {
       )}
 
       {user && <TrainingPlaceSetting />}
+
+      {user && trainingMode() !== 'outdoor' && <HoldSetting />}
 
       <RestTimerSetting />
 

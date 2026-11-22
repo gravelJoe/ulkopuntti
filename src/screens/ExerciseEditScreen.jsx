@@ -1,18 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { SETS_PER_EXERCISE, WEIGHT_STEP } from '../config/workouts.js';
+import { DEFAULT_WEIGHT, INCREASE_DEFAULT, SETS_PER_EXERCISE, WEIGHT_STEP } from '../config/workouts.js';
+import { getSessionHistory } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import {
   activeExercisesAt,
   activeWorkouts,
   getExercise,
   getProgram,
+  holdWeeks,
+  indoorGyms,
   newId,
   PLACES,
+  platesAt,
+  progressionOf,
   saveProgram,
   trainingMode,
 } from '../program/store.js';
 import { formatWeight } from '../utils/format.js';
+import { isUsableCtx, isValidPlateWeight, loadableAtLeast, loadableNearest } from '../utils/plates.js';
+import { planFor } from '../workout/progression.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow, NavBar, SegmentedControl } from '../components/ui.jsx';
 
@@ -24,6 +31,27 @@ const KIND_OPTIONS = [
 ];
 const MIN_SETS = 1;
 const MAX_SETS = 10;
+const parseKg = (text) => Number(String(text).replace(',', '.').trim());
+
+/**
+ * The real next jump per indoor gym: what +increase becomes after rounding to
+ * the gym's bar and plates (or the machine's step), measured from this
+ * exercise's current planned base. [{ where, jump }] — jump null = can't load more.
+ */
+function realJumps(kind, step, base, increase) {
+  const jumpWith = (ctx) => {
+    const up = loadableAtLeast(base + increase, ctx);
+    return up === null ? null : Math.round((up - loadableNearest(base, ctx)) * 100) / 100;
+  };
+  if (kind === 'machine') {
+    const ctx = { kind: 'machine', step };
+    return isUsableCtx(ctx) ? [{ where: 'this machine', jump: jumpWith(ctx) }] : [];
+  }
+  return indoorGyms()
+    .map((gym) => ({ gym, ctx: { kind: 'barbell', bar: gym.bars?.[0]?.weight, plates: platesAt(gym) } }))
+    .filter(({ ctx }) => isUsableCtx(ctx))
+    .map(({ gym, ctx }) => ({ where: gym.name, jump: jumpWith(ctx) }));
+}
 
 export default function ExerciseEditScreen() {
   const { exerciseId } = useParams();
@@ -42,8 +70,29 @@ export default function ExerciseEditScreen() {
   const [name, setName] = useState(existing?.name ?? '');
   const [sets, setSets] = useState(existing?.sets ?? SETS_PER_EXERCISE);
   const [step, setStep] = useState(existing?.step ?? DEFAULT_STEP[existing?.kind ?? kind]);
+  const [increaseText, setIncreaseText] = useState(formatWeight(existing?.progression?.increase ?? INCREASE_DEFAULT));
+  const [base, setBase] = useState(null); // planned base for the jump note; null = loading
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // The jump note measures from this exercise's current plan.
+  useEffect(() => {
+    if (place !== 'indoor') return;
+    if (!existing) {
+      setBase(DEFAULT_WEIGHT);
+      return;
+    }
+    let alive = true;
+    getSessionHistory().then(({ sessions }) => {
+      if (!alive) return;
+      const history = (sessions ?? []).filter((s) => s.place === 'indoor');
+      const settings = progressionOf(existing.id) ?? { increase: INCREASE_DEFAULT };
+      setBase(planFor({ exerciseId: existing.id, progression: settings, holdWeeks: holdWeeks(), history }).base);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [place]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user) return <Navigate to="/settings" replace />;
   if (!isNew && (!existing || existing.archived)) return <Navigate to="/settings/exercises" replace />;
@@ -54,6 +103,9 @@ export default function ExerciseEditScreen() {
     (v) => ({ value: v, label: `${formatWeight(v)}` }),
   );
   const usedIn = existing ? activeWorkouts().filter((w) => w.slots.some((s) => s.options.includes(existing.id))) : [];
+  const increase = parseKg(increaseText);
+  const increaseValid = isValidPlateWeight(increase);
+  const jumps = place === 'indoor' && increaseValid && base !== null ? realJumps(effectiveKind, step, base, increase) : [];
 
   async function handleSave(e) {
     e.preventDefault();
@@ -61,9 +113,12 @@ export default function ExerciseEditScreen() {
     if (!trimmed) return setError('Give the exercise a name');
     const clash = activeExercisesAt(place).find((x) => x.id !== existing?.id && x.name.toLowerCase() === trimmed.toLowerCase());
     if (clash) return setError('An exercise with that name already exists');
+    if (place === 'indoor' && !increaseValid) return setError('Increase per week must be 0.05–50 kg');
 
     const program = getProgram();
     const exercise = { id: existing?.id ?? newId('ex'), name: trimmed, place, kind: effectiveKind, sets, step };
+    // Weekly progression (indoor): merge, so a planned weight set in History → By exercise is kept.
+    if (place === 'indoor') exercise.progression = { ...(existing?.progression ?? {}), increase };
     const exercises = isNew
       ? [...program.exercises, exercise]
       : program.exercises.map((x) => (x.id === exercise.id ? { ...x, ...exercise } : x));
@@ -193,6 +248,39 @@ export default function ExerciseEditScreen() {
         <InsetGroup header="Weight step (kg per tap)" padded>
           <SegmentedControl label="Weight step" options={stepOptions} value={step} onChange={setStep} />
         </InsetGroup>
+
+        {place === 'indoor' && (
+          <InsetGroup
+            header="Increase per week"
+            footer={
+              !increaseValid
+                ? 'Use 0.05–50 kg, in steps of 0.05.'
+                : base === null
+                  ? '…'
+                  : jumps.length === 0
+                    ? 'Add a gym with a bar and plates to see the real jump.'
+                    : jumps
+                        .map(({ where, jump }) =>
+                          jump === null
+                            ? `Can't load more at ${where}`
+                            : `+${formatWeight(increase)} kg → +${formatWeight(jump)} kg at ${where}`,
+                        )
+                        .join(' · ')
+            }
+          >
+            <label className="form-row">
+              <span className="form-label">Increase</span>
+              <input
+                className="form-input"
+                inputMode="decimal"
+                value={increaseText}
+                onChange={(e) => setIncreaseText(e.target.value)}
+                aria-label="Increase per week in kg"
+              />
+              <span className="stepper-unit">kg</span>
+            </label>
+          </InsetGroup>
+        )}
 
         {error && (
           <p className="form-error" role="alert">

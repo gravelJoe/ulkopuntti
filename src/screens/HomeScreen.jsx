@@ -189,6 +189,12 @@ export default function HomeScreen() {
       </InsetGroup>
 
       <InsetGroup>
+        {user && place === 'indoor' && (
+          <ListRow onClick={() => go('/history?view=exercise')} chevron>
+            <div className="row-title">Progress</div>
+            <div className="row-meta">Weekly history per exercise</div>
+          </ListRow>
+        )}
         <ListRow onClick={() => go('/history')} chevron>
           <div className="row-title">History</div>
         </ListRow>

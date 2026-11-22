@@ -234,6 +234,15 @@
 .history-views {
   margin-bottom: 20px;
 }
+.row-upcoming {
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+.row-effect {
+  margin-top: 4px;
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 600;
+}
 .progression-edit {
   display: flex;
   align-items: center;

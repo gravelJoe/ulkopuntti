@@ -5,7 +5,7 @@
 import { DEFAULT_WEIGHT } from '../config/workouts.js';
 import { exerciseSets, getGym, holdWeeks, isBarbell, progressionOf } from '../program/store.js';
 import { getSessionHistory, isGuest, lastWeightsFrom } from '../data/repository.js';
-import { planFor, plannedWeight, roundPlan } from './progression.js';
+import { isHeldWeek, planFor, planUpcoming, plannedWeight, roundPlan } from './progression.js';
 import { ctxFor } from './rounding.js';
 import { isUsableCtx } from '../utils/plates.js';
 import { DateTime } from 'luxon';
@@ -52,10 +52,10 @@ function initialBar(gym, lastBar) {
 export const isProgressive = (state) => state?.progression ?? (state?.place === 'indoor' && !isGuest());
 
 /** The plan for one exercise, rounded for this gym and bar (null if it has no progression). */
-function makePlan(exerciseId, history, gymId, barId, offline, now) {
+function makePlan(exerciseId, history, gymId, barId, offline, now, upcoming = false) {
   const settings = progressionOf(exerciseId);
   if (!settings) return null;
-  const plan = planFor({ exerciseId, progression: settings, holdWeeks: holdWeeks(), history, now });
+  const plan = (upcoming ? planUpcoming : planFor)({ exerciseId, progression: settings, holdWeeks: holdWeeks(), history, now });
   const ctx = ctxFor(exerciseId, gymId, barId);
   const { weight, cantLoadMore } = roundPlan(plan, settings.increase, ctx);
   return {
@@ -74,10 +74,12 @@ function makePlan(exerciseId, history, gymId, barId, offline, now) {
  * show it: the bar used last time at this gym (by name, else the gym's first),
  * then planFor + rounding. Shared by createSession and History → By exercise.
  * indoorHistory: indoor sessions, newest first. Returns { plan, barId }.
+ * upcoming: plan the week after the newest trained week (History view) instead
+ * of the next session (workout card, which repeats this week's weight).
  */
-export function planNextTime(exerciseId, indoorHistory, gymId, lastBar, { offline = false, now = DateTime.now() } = {}) {
+export function planNextTime(exerciseId, indoorHistory, gymId, lastBar, { offline = false, now = DateTime.now(), upcoming = false } = {}) {
   const barId = isBarbell(exerciseId) ? initialBar(getGym(gymId), lastBar)?.id ?? null : null;
-  return { plan: makePlan(exerciseId, indoorHistory, gymId, barId, offline, now), barId };
+  return { plan: makePlan(exerciseId, indoorHistory, gymId, barId, offline, now, upcoming), barId };
 }
 
 /** gymId: indoor gym (weights, bars and plates are per gym); null outdoors or if unknown. */
@@ -166,10 +168,11 @@ export function sessionReducer(state, action) {
         const id = slot.selected;
         const sets = slot.sets[id].map((done, i) => (i === action.index ? !done : done));
         const next = { ...slot, sets: { ...slot.sets, [id]: sets } };
-        // All sets done and no result chosen yet → Go up (it can still be changed).
-        // Un-ticking a set leaves the result as it is.
+        // All sets done and no result chosen yet → Go up, or Keep in a held week
+        // (it can still be changed). Un-ticking a set leaves the result as it is.
         if (isProgressive(state) && sets.every(Boolean) && !slot.outcome?.[id]) {
-          next.outcome = { ...(slot.outcome ?? {}), [id]: 'success' };
+          const held = isHeldWeek(slot.plan?.[id]?.holdWeek, slot.plan?.[id]?.holdWeeks);
+          next.outcome = { ...(slot.outcome ?? {}), [id]: held ? 'neutral' : 'success' };
         }
         return next;
       });
@@ -239,7 +242,10 @@ export function toSavedSession(state) {
     exercises: state.slots
       .map((slot) => {
         const bar = getGym(state.gymId)?.bars.find((b) => b.id === slot.bar?.[slot.selected]);
-        const outcome = slot.outcome?.[slot.selected] ?? null;
+        let outcome = slot.outcome?.[slot.selected] ?? null;
+        // In a held week Go up and Keep have the same effect: save it as Keep.
+        const plan = slot.plan?.[slot.selected];
+        if (outcome === 'success' && isHeldWeek(plan?.holdWeek, plan?.holdWeeks)) outcome = 'neutral';
         return {
           exerciseId: slot.selected,
           weight: slot.weight[slot.selected],

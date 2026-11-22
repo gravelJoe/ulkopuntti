@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { getSessionHistory } from '../data/repository.js';
-import { getExercise, getGym, getProgram, holdWeeks, saveProgram, useProgram } from '../program/store.js';
-import { weeklyHistory } from '../workout/progression.js';
+import { getExercise, getGym, getProgram, holdWeeks, progressionOf, saveProgram, useProgram } from '../program/store.js';
+import { describeEffect, isHeldWeek, showsHold, weeklyHistory } from '../workout/progression.js';
 import { planNextTime } from '../workout/session.js';
 import { INCREASE_DEFAULT } from '../config/workouts.js';
 import { formatWeight } from '../utils/format.js';
@@ -16,10 +16,35 @@ const parseKg = (text) => Number(String(text).replace(',', '.').trim());
 const weekLabel = (key) =>
   `Week of ${DateTime.fromISO(key).toLocaleString({ day: 'numeric', month: 'short' }, { locale: LOCALE })}`;
 
+const signedKg = (kg) => `${kg > 0 ? '+' : '−'}${formatWeight(Math.abs(kg))} kg`;
+
 /**
- * One indoor exercise: what's planned for next time, and its weekly history.
- * The next weight is worked out exactly like the workout card does, for the
- * gym and bar used last time. Archived exercises show their history only.
+ * Second line of the "Next week" row: the planned weight, the change and why,
+ * plus what the gym loads. Checks where the plan came from first (Settings
+ * edit / starting weight), then the hold, then the last week's result.
+ */
+function upcomingText(plan, gymName) {
+  const holding = plan.holdWeek > 0 && showsHold(plan.holdWeeks);
+  const change = Math.round((plan.planned - plan.base) * 100) / 100;
+  const planned = `Planned ${formatWeight(plan.planned)} kg`;
+  let why;
+  if (plan.source === 'anchor') why = `${planned} · set by you`;
+  else if (plan.source === 'start') why = `${planned} · starting weight`;
+  else if (plan.action === 'down' && change < 0)
+    why = `${planned} (${signedKg(change)}) after Go down${holding ? ` · held ${plan.holdWeek} of ${plan.holdWeeks}` : ''}`;
+  else if (holding) why = `Same weight: hold ${plan.holdWeek} of ${plan.holdWeeks}`;
+  else if (plan.action === 'up' && change > 0) why = `${planned} (${signedKg(change)}) after Go up`;
+  else why = 'Same weight after Repeat';
+
+  if (plan.unrounded) return `${why} · not rounded: no plates at this gym`;
+  if (plan.cantLoadMore) return `${why} · can't load more at ${gymName}`;
+  return plan.rounded !== plan.planned ? `${why} · ${gymName} loads ${formatWeight(plan.rounded)}` : why;
+}
+
+/**
+ * One indoor exercise as one timeline: a "Next week" row (the plan for the
+ * week after the newest trained week, rounded like the workout card does for the
+ * gym and bar used last time), then the past weeks, newest first. Archived exercises show their history only.
  */
 export default function ExerciseHistoryScreen() {
   const { exerciseId } = useParams();
@@ -62,14 +87,14 @@ export default function ExerciseHistoryScreen() {
     );
 
   const hold = holdWeeks();
-  const rows = weeklyHistory({ exerciseId, holdWeeks: hold, history: sessions });
+  const increase = progressionOf(exerciseId)?.increase ?? exercise.progression?.increase ?? INCREASE_DEFAULT;
+  const rows = weeklyHistory({ exerciseId, holdWeeks: hold, increase, history: sessions });
 
-  // Next time: the gym and bar of the latest session where it was lifted.
+  // Next week: rounded for the gym and bar of the latest session where it was lifted.
   const lastLifted = sessions.find((s) => s.exercises.some((e) => e.exerciseId === exerciseId && e.sets.some(Boolean)));
   const lastEx = lastLifted?.exercises.find((e) => e.exerciseId === exerciseId);
   const gym = getGym(lastLifted?.gymId);
-  const next = exercise.archived ? null : planNextTime(exerciseId, sessions, gym?.id ?? null, lastEx?.bar, { offline }).plan;
-  const status = next && (next.holdWeek > 0 ? `Hold ${next.holdWeek} of ${next.holdWeeks}` : 'Normal');
+  const next = exercise.archived ? null : planNextTime(exerciseId, sessions, gym?.id ?? null, lastEx?.bar, { offline, upcoming: true }).plan;
 
   function startEdit() {
     setDraft(formatWeight(next.planned));
@@ -109,73 +134,57 @@ export default function ExerciseHistoryScreen() {
       {back}
       <LargeTitle title={exercise.name} subtitle={exercise.archived ? 'Deleted exercise · history only' : null} />
 
-      {next && (
-        <InsetGroup
-          header="Next time"
-          footer={
-            next.unrounded
-              ? 'Not rounded: no gym with a bar and plates to round for.'
-              : `Rounded for ${gym ? gym.name : 'your gym'}${next.cantLoadMore ? " · can't load more there" : ''}.${
-                  offline ? ' Offline: from saved history.' : ''
-                }`
-          }
-        >
-          {editing ? (
-            <ListRow>
-              <div className="row-title">Planned weight</div>
-              <div className="progression-edit">
-                <input
-                  className="form-input"
-                  inputMode="decimal"
-                  aria-label={`${exercise.name} planned weight in kg`}
-                  value={draft}
-                  autoFocus
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && saveAnchor()}
-                />
-                <span className="stepper-unit">kg</span>
-                <button className="inline-link" disabled={busy} onClick={saveAnchor}>
-                  {busy ? 'Saving…' : 'Save'}
-                </button>
-                <button className="inline-link" disabled={busy} onClick={() => setEditing(false)}>
-                  Cancel
-                </button>
-              </div>
-            </ListRow>
-          ) : (
-            <>
-              <ListRow>
-                <div className="detail-row">
-                  <div>
-                    <div className="row-title">{next.unrounded ? formatWeight(next.planned) : formatWeight(next.rounded)} kg</div>
-                    <div className="row-meta">
-                      {status} · {next.reason}
-                    </div>
-                  </div>
-                </div>
-              </ListRow>
-              <ListRow onClick={startEdit}>
-                <div className="row-action">Change planned weight</div>
-              </ListRow>
-            </>
-          )}
-        </InsetGroup>
-      )}
-
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
 
-      <InsetGroup header="Weekly" footer={offline ? 'Offline: showing the history saved on this phone.' : null}>
+      <InsetGroup footer={offline ? 'Offline: showing the history saved on this phone.' : 'Tap Next week to change the planned weight.'}>
+        {next && editing && (
+          <ListRow className="row-upcoming">
+            <div className="row-title">Planned weight for next week</div>
+            <div className="progression-edit">
+              <input
+                className="form-input"
+                inputMode="decimal"
+                aria-label={`${exercise.name} planned weight in kg`}
+                value={draft}
+                autoFocus
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveAnchor()}
+              />
+              <span className="stepper-unit">kg</span>
+              <button className="inline-link" disabled={busy} onClick={saveAnchor}>
+                {busy ? 'Saving…' : 'Save'}
+              </button>
+              <button className="inline-link" disabled={busy} onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+            </div>
+          </ListRow>
+        )}
+        {next && !editing && (
+          <ListRow className="row-upcoming" onClick={startEdit} chevron>
+            <div className="detail-row">
+              <div>
+                <div className="row-title">Next week</div>
+                <div className="row-meta">{upcomingText(next, gym ? gym.name : 'your gym')}</div>
+              </div>
+              <div className="detail-weight">
+                {formatWeight(next.unrounded ? next.planned : next.rounded)}
+                <span className="stepper-unit">kg</span>
+              </div>
+            </div>
+          </ListRow>
+        )}
         {rows.length === 0 && <div className="list-row empty-state">No weeks with a result yet.</div>}
         {rows.map((row) => {
           const done = row.exercise.sets.filter(Boolean).length;
           const meta = [
+            row.outcome !== 'fail' && isHeldWeek(row.holdWeek, hold) ? 'Kept (hold)' : RESULT_LABEL[row.outcome],
             `${done}/${row.exercise.sets.length} sets`,
-            RESULT_LABEL[row.outcome],
-            row.holdWeek > 0 && `Hold ${row.holdWeek} of ${hold}`,
+            row.holdWeek > 0 && showsHold(hold) && `held (week ${row.holdWeek} of ${hold})`,
             row.extraSessions > 0 && `+${row.extraSessions} more`,
           ]
             .filter(Boolean)
@@ -187,6 +196,7 @@ export default function ExerciseHistoryScreen() {
                 <div>
                   <div className="row-title">{weekLabel(row.week)}</div>
                   <div className="row-meta">{meta}</div>
+                  <div className="row-effect">→ {describeEffect(row, hold)}</div>
                 </div>
                 <div className="detail-weight">
                   {formatWeight(row.exercise.weight)}

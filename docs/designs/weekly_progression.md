@@ -187,10 +187,12 @@ Decisions made during drafting that are not obvious from the Goals:
 *   **When**: You open History → By exercise (or Progress on Home) and tap an
     exercise.
 *   **Then**:
-    *   You see "Next time": the weight you'll load, with its status
-        ("Hold 1 of 2" or "Normal") and the reason.
-    *   Below it are the weekly rows: weight, sets, result and hold label.
-    *   You can change the planned weight; a running hold stays in place.
+    *   You see one timeline. On top is "Next week": the weight you'll load,
+        with the planned weight, the change in kg and why.
+    *   Below it are the past weeks: trained weight, result and sets, and
+        "→ +1 kg next week" or a similar line.
+    *   Tapping "Next week" changes the planned weight; a running hold stays
+        in place.
 
 ## Technical Plan (Architecture)
 
@@ -405,6 +407,14 @@ hand-edited, becomes next week's base (see Risks: rounding carries over).
     workout. Ticking the exercise's last set selects Go up if nothing is
     selected yet. The card also shows the plan line, for example
     "Plan 61 kg → 62.5 kg here · Went up last time".
+*   **Held weeks** (changed after approval). With a hold of 2 or more, a
+    week before the last hold week ignores every result except Go down. The
+    card then offers only **Keep (hold)** (`neutral`) and **Go down**, with
+    "Hold 1 of 2: only Go down changes anything". Ticking all sets selects
+    Keep; a Go up chosen there is saved as Keep. The last hold week shows the
+    three normal buttons and "Go up counts again". A hold of 0 or 1 never
+    shows hold wording, because both behave the same. History shows such
+    weeks as "Kept (hold)".
 *   **No auto-save indoors.** Ticking the last set of an indoor workout no
     longer saves it and returns Home. The rest timer is skipped. The workout
     stays open with a highlighted **Save workout** button. Outdoor workouts
@@ -1133,13 +1143,24 @@ position in the list, and the next workout's plan line reflects the new result.
 *   **ExerciseHistoryScreen** (`/history/exercise/:exerciseId`):
     *   An unknown or non-indoor id redirects to `/history?view=exercise`.
     *   An archived exercise shows its history only.
-    *   **"Next time":** the gym and bar of the latest session where the
-        exercise was lifted, with the status and reason. If the plan could
-        not be rounded, it shows the unrounded weight plus a note.
-    *   **Change planned weight:** writes `progression: { increase:
+    *   **One timeline.** On top is a **"Next week"** row: `planUpcoming`,
+        the plan for the week after the newest trained week. The same-week
+        rule is skipped, because each exercise is trained once a week. It is
+        rounded via `planNextTime(…, { upcoming: true })` for the gym and bar
+        used last time. It shows the planned weight, the change and why, e.g.
+        "Planned 61 kg (+1 kg) after Go up · Gym A loads 62.5".
+    *   **Tapping "Next week"** changes the planned weight. It writes `progression: { increase:
         old?.increase ?? INCREASE_DEFAULT, ...old, anchor: { weight, at } }`.
-    *   **Weekly rows:** week, weight, sets, result, "Hold n of N" and
-        "+n more". A row opens `/history/:id` when the session has an id
+    *   **Weekly rows** (cause → effect):
+        *   the week and the trained weight;
+        *   the result, sets, "held (week n of N)" and "+n more";
+        *   an "→" line saying what that week did to the next week, e.g.
+            "+1 kg next week", "−1 kg, then held for 2 weeks" or "same weight
+            next week".
+
+        The effect is the plan replayed on the history up to that week. Hold
+        text appears only for a hold of 2 or more, since 0 and 1 behave the
+        same. A row opens `/history/:id` when the session has an id
         (offline cached sessions don't).
     *   Empty state: "No weeks with a result yet".
     *   Guests are redirected to `/history`.

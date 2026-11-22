@@ -2,12 +2,18 @@ import { DEFAULT_WEIGHT } from '../config/workouts.js';
 import { exerciseName, exerciseStep, isBarbell, platesAt } from '../program/store.js';
 import { formatWeight } from '../utils/format.js';
 import { SegmentedControl } from './ui.jsx';
+import { isHeldWeek, showsHold } from '../workout/progression.js';
 import WeightStepper from './WeightStepper.jsx';
 import BarbellHelper from './BarbellHelper.jsx';
 
 const RESULTS = [
   { value: 'success', label: 'Go up' },
   { value: 'neutral', label: 'Repeat' },
+  { value: 'fail', label: 'Go down' },
+];
+// Held week (hold of 2+, not the last week): only a Go down changes anything.
+const HELD_RESULTS = [
+  { value: 'neutral', label: 'Keep (hold)' },
   { value: 'fail', label: 'Go down' },
 ];
 
@@ -20,7 +26,10 @@ function planLine(slot, exerciseId) {
     plan.planned === plan.rounded
       ? `Plan ${formatWeight(plan.planned)} kg`
       : `Plan ${formatWeight(plan.planned)} kg → ${formatWeight(plan.rounded)} kg here`;
-  return [target, plan.reason, plan.cantLoadMore && "Can't load more here", plan.offline && 'offline']
+  let reason = plan.reason;
+  if (isHeldWeek(plan.holdWeek, plan.holdWeeks)) reason = `${reason}: only Go down changes anything`;
+  else if (showsHold(plan.holdWeeks) && plan.holdWeek > 0 && plan.holdWeek === plan.holdWeeks) reason = `${reason}: Go up counts again`;
+  return [target, reason, plan.cantLoadMore && "Can't load more here", plan.offline && 'offline']
     .filter(Boolean)
     .join(' · ');
 }
@@ -41,6 +50,8 @@ export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, 
   const allDone = doneCount === sets.length;
   const plan = progressive ? planLine(slot, exerciseId) : null;
   const outcome = slot.outcome?.[exerciseId] ?? null;
+  const planInfo = slot.plan?.[exerciseId];
+  const held = progressive && isHeldWeek(planInfo?.holdWeek, planInfo?.holdWeeks);
 
   return (
     <section className="exercise-card" ref={cardRef}>
@@ -106,8 +117,8 @@ export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, 
         <div className="exercise-result">
           <SegmentedControl
             label={`${name} result`}
-            options={RESULTS}
-            value={outcome}
+            options={held ? HELD_RESULTS : RESULTS}
+            value={held && outcome === 'success' ? 'neutral' : outcome}
             onChange={(value) => dispatch({ type: 'setOutcome', slot: slotIndex, outcome: value })}
           />
         </div>

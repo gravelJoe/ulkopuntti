@@ -52,7 +52,7 @@ function HoldSetting() {
   return (
     <InsetGroup
       header="Hold after a fail"
-      footer={error || 'After a Go down, the lower weight stays for this many trained weeks before it can go up again.'}
+      footer={error || 'After a Go down, the lower weight stays for this many trained weeks before it can go up again. 0 or 1 = no extra hold.'}
       padded
     >
       <div className="stepper">

@@ -4,7 +4,7 @@
 
 import { DEFAULT_WEIGHT } from '../config/workouts.js';
 import { exerciseSets, getGym, holdWeeks, isBarbell, progressionOf } from '../program/store.js';
-import { getSessionHistory, isGuest, lastWeightsFrom } from '../data/repository.js';
+import { getSessionHistory, isGuest, lastWeightsFrom, recentSessionsFrom } from '../data/repository.js';
 import { isHeldWeek, planFor, planUpcoming, plannedWeight, roundPlan } from './progression.js';
 import { ctxFor } from './rounding.js';
 import { isUsableCtx } from '../utils/plates.js';
@@ -33,6 +33,7 @@ const mapOptions = (options, fn) => Object.fromEntries(options.map((id) => [id, 
  *     bar:        { multifit: null, row: null },          // barbell: bar id
  *     plan:       { multifit: Plan | null, … },           // indoor progression
  *     outcome:    { multifit: 'success'|'neutral'|'fail'|null, … },
+ *     recent:     { multifit: [{ finishedAt, gymId, weight, done, total, outcome }], … }, // last 3 sessions, any gym
  *     noPlanOffline: false,                               // offline with no history cache
  *   }],
  *   progression: true,   // indoor session of a logged-in user (plans + result buttons)
@@ -117,6 +118,8 @@ export async function createSession(workout, gymId = null) {
         bar,
         plan,
         outcome: mapOptions(options, () => null),
+        // Last 3 sessions at this place, any gym (none for guests): the History bar and "Last time".
+        recent: mapOptions(options, (id) => (isGuest() ? [] : recentSessionsFrom(sessions, id, place))),
         noPlanOffline,
       };
     }),

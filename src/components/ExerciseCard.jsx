@@ -1,6 +1,7 @@
 import { DEFAULT_WEIGHT } from '../config/workouts.js';
 import { exerciseName, exerciseStep, isBarbell, platesAt } from '../program/store.js';
 import { formatWeight } from '../utils/format.js';
+import { lastLifted, otherGym } from '../workout/recent.js';
 import { SegmentedControl } from './ui.jsx';
 import { isHeldWeek, showsHold } from '../workout/progression.js';
 import WeightStepper from './WeightStepper.jsx';
@@ -40,7 +41,7 @@ function planLine(slot, exerciseId) {
  * gym: the indoor gym for barbell exercises (null outdoors / not known yet).
  * progressive: indoor session of a logged-in user — show the plan and the result buttons.
  */
-export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, onToggleSet, cardRef, indoor, gym, progressive }) {
+export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, onToggleSet, cardRef, indoor, gym, gymId = null, progressive }) {
   const exerciseId = slot.selected;
   const name = exerciseName(exerciseId);
   const weight = slot.weight[exerciseId];
@@ -50,6 +51,8 @@ export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, 
   const allDone = doneCount === sets.length;
   const plan = progressive ? planLine(slot, exerciseId) : null;
   const outcome = slot.outcome?.[exerciseId] ?? null;
+  // "Last time": the newest session actually lifted, at any gym (the full list is in the History bar).
+  const lifted = lastLifted(slot.recent?.[exerciseId]);
   const planInfo = slot.plan?.[exerciseId];
   const held = progressive && isHeldWeek(planInfo?.holdWeek, planInfo?.holdWeeks);
 
@@ -62,7 +65,11 @@ export default function ExerciseCard({ slot, slotIndex, currentIndex, dispatch, 
         </span>
       </header>
       <p className="exercise-last">
-        {last != null ? `Last time: ${formatWeight(last)} kg` : `First time · starting at ${DEFAULT_WEIGHT} kg`}
+        {lifted
+          ? `Last time: ${formatWeight(lifted.weight)} kg${otherGym(lifted.gymId, gymId)}`
+          : last != null
+            ? `Last time: ${formatWeight(last)} kg`
+            : `First time · starting at ${DEFAULT_WEIGHT} kg`}
       </p>
       {plan && <p className="exercise-plan">{plan}</p>}
 

@@ -19,6 +19,7 @@ import { useWakeLock } from '../hooks/useWakeLock.js';
 import { InsetGroup, LargeTitle, ListRow, NavBar } from '../components/ui.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import ExerciseCard from '../components/ExerciseCard.jsx';
+import RecentHistory from '../components/RecentHistory.jsx';
 import RestTimerOverlay from '../components/RestTimerOverlay.jsx';
 
 export default function WorkoutScreen() {
@@ -246,6 +247,8 @@ export default function WorkoutScreen() {
         </InsetGroup>
       )}
 
+      {session && !pickingGym && <RecentHistory slots={session.slots} gymId={session.gymId ?? null} />}
+
       {!pickingGym && session?.slots.map((slot, i) => (
         <ExerciseCard
           key={i}
@@ -257,6 +260,7 @@ export default function WorkoutScreen() {
           cardRef={(el) => (cardRefs.current[i] = el)}
           indoor={indoor}
           gym={gym}
+          gymId={session.gymId ?? null}
           progressive={progressive}
         />
       ))}

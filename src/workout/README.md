@@ -9,11 +9,16 @@ Logic for a workout in progress. It builds a session with weights prefilled from
 - `session.js`
   - `slotOptions(slot)`: exercise ids for a slot. Accepts `options`, the template `choice`, or `exercise`.
   - `clampWeight(kg)`: rounds to 0.01 and clamps to the range 0..999.
-  - `createSession(workout, gymId = null)` (async): returns the in-progress state `{ workoutId, place, gymId, startedAt, slots: [{ options, selected, weight, sets, lastWeight, bar }] }`. `weight`, `sets`, `lastWeight`, and `bar` are maps keyed by exercise id.
+  - `createSession(workout, gymId = null)` (async): returns the in-progress state `{ workoutId, place, gymId, startedAt, slots: [{ options, selected, weight, sets, lastWeight, bar, plan, outcome, recent, noPlanOffline }] }`. `weight`, `sets`, `lastWeight`, `bar`, `plan`, `outcome` and `recent` are maps keyed by exercise id. `recent` holds the last 3 sessions of the exercise at this place (any gym) for the workout's "History · last 3" bar and the card's "Last time" line; it is filled once at the start and stays as it was in a resumed draft.
   - `sessionReducer(state, action)`: handles the actions `load` (`session`), `select` (`slot`, `exerciseId`), `setBar` (`slot`, `barId`), `setWeight` (`slot`, `weight`), and `toggleSet` (`slot`, `index`).
   - `progress(state)`: `{ done, total }` sets, counted over the selected exercise of each slot.
   - `nextSet(state)`: `{ slot, index }` of the first set not yet done, or `null`.
   - `toSavedSession(state)`: returns `{ id, workoutId, place, gymId, startedAt, finishedAt, exercises: [{ exerciseId, weight, sets, bar? }] }`.
+- `recent.js` (display rules for `slot.recent`, shared by `RecentHistory` and `ExerciseCard`)
+  - `otherGym(entryGymId, todayGymId)`: `' · Gym B'` when the entry is from another gym that still exists, otherwise `''`.
+  - `recentLine(entry, todayGymId)`: `'Sun 6 Dec · 30 kg · 5/5 · Go up'` plus the gym suffix. `neutral` reads "Same weight", and a missing result is left out.
+  - `lastLifted(recent)`: the newest entry with a set done, or `undefined`.
+  - `historyGroups(slots)`: `[{ id, list }]` per selected exercise with history, once per exercise id.
 
 ## Invariants
 

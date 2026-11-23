@@ -34,10 +34,11 @@ export function InsetGroup({ header, footer, padded, children }) {
   );
 }
 
-export function ListRow({ onClick, chevron, leading, className = '', children }) {
+// Extra props (e.g. aria-expanded / aria-controls) go to the row element itself.
+export function ListRow({ onClick, chevron, leading, className = '', children, ...rest }) {
   const Tag = onClick ? 'button' : 'div';
   return (
-    <Tag className={`list-row ${className}`} onClick={onClick}>
+    <Tag {...rest} className={`list-row ${className}`} onClick={onClick}>
       {leading}
       <div className="list-row-content">{children}</div>
       {chevron && (

@@ -28,6 +28,11 @@ keeps track of who is logged in and switches the adapter when that changes.
 - Derived queries: `getLastWeights(place = 'outdoor', gymId = null)` returns
   `{ exerciseId: { weight, bar } }`; `getLastSessionDates()` returns
   `{ workoutId: finishedAt }`
+- `recentSessionsFrom(sessions, exerciseId, place = 'outdoor', n = 3)` (pure):
+  the last `n` sessions of an exercise at a place (any gym), newest first, as
+  `[{ finishedAt, gymId, weight, done, total, outcome }]`. Entries with no set
+  done and no result are skipped. If a session has the exercise twice, the
+  entry with a set done wins. `sessions` may be `null`.
 
 ### `auth.js`: login state
 

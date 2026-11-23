@@ -218,6 +218,26 @@
 .exercise-choice {
   margin-bottom: 8px;
 }
+.history-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.history-bar-arrow {
+  color: var(--label-3);
+  transition: transform 0.15s;
+}
+.history-bar-arrow.is-open {
+  transform: rotate(180deg);
+}
+.history-bar-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--label-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
 .exercise-plan {
   margin: -8px 4px 12px;
   color: var(--accent-text);

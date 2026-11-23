@@ -167,6 +167,37 @@ export function lastWeightsFrom(sessions, place = 'outdoor', gymId = null) {
   return result;
 }
 
+/**
+ * The last n sessions of one exercise at a place (any gym), newest first, for
+ * the workout's "History · last 3" bar and the card's "Last time" line:
+ * [{ finishedAt, gymId, weight, done, total, outcome }]. Includes entries with
+ * a set done or a result (a zero-set Go down counts); untouched entries are
+ * skipped. sessions may be null.
+ */
+export function recentSessionsFrom(sessions, exerciseId, place = 'outdoor', n = 3) {
+  const doneOf = (e) => e.sets?.filter(Boolean).length ?? 0;
+  const result = [];
+  for (const s of sessions ?? []) {
+    if (result.length >= n) break;
+    if ((s.place ?? 'outdoor') !== place) continue;
+    // A session can hold the exercise twice (one entry per slot): prefer the
+    // one actually lifted, else one with a result.
+    const entries = s.exercises?.filter((e) => e.exerciseId === exerciseId) ?? [];
+    const ex = entries.find((e) => doneOf(e) > 0) ?? entries.find((e) => e.outcome);
+    if (!ex) continue;
+    const done = doneOf(ex);
+    result.push({
+      finishedAt: s.finishedAt,
+      gymId: s.gymId ?? null,
+      weight: ex.weight,
+      done,
+      total: ex.sets?.length ?? 0,
+      outcome: ex.outcome ?? null,
+    });
+  }
+  return result;
+}
+
 /** { workoutId: ISO date } of the last finished session of each workout. */
 export async function getLastSessionDates() {
   const sessions = await adapter.listSessions();

@@ -4,9 +4,10 @@
 *   **Status:** Proposed
 *   **Date:** 2026-11-22
 *   **Review:** EGM review, three rounds (2026-11-22 and 2026-11-23). The
-    author's decisions are recorded in `goldfish_review_report_round1.md`,
-    `goldfish_review_report_round2.md` and `goldfish_review_report.md` in
-    the repository root.
+    author's decisions and their reasons are in
+    [round 1](rest_timer_alarm/decisions_round1.md),
+    [round 2](rest_timer_alarm/decisions_round2.md) and
+    [round 3](rest_timer_alarm/decisions_round3.md).
 
 --------------------------------------------------------------------------------
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { DEFAULT_WEIGHT, INCREASE_DEFAULT, SETS_PER_EXERCISE, WEIGHT_STEP } from '../config/workouts.js';
+import { getRestSeconds } from '../data/preferences.js';
 import { getSessionHistory } from '../data/repository.js';
 import { useAuth } from '../hooks/useAuth.js';
 import {
@@ -17,11 +18,12 @@ import {
   saveProgram,
   trainingMode,
 } from '../program/store.js';
-import { formatWeight } from '../utils/format.js';
+import { formatSeconds, formatWeight } from '../utils/format.js';
 import { isUsableCtx, isValidPlateWeight, loadableAtLeast, loadableNearest } from '../utils/plates.js';
 import { planFor } from '../workout/progression.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow, NavBar, SegmentedControl } from '../components/ui.jsx';
+import RestStepper from '../components/RestStepper.jsx';
 
 const STEP_CHOICES = { machine: [1.25, 2.5, 5, 10], barbell: [0.5, 1, 2.5, 5] };
 const DEFAULT_STEP = { machine: WEIGHT_STEP, barbell: 1 };
@@ -70,6 +72,7 @@ export default function ExerciseEditScreen() {
   const [name, setName] = useState(existing?.name ?? '');
   const [sets, setSets] = useState(existing?.sets ?? SETS_PER_EXERCISE);
   const [step, setStep] = useState(existing?.step ?? DEFAULT_STEP[existing?.kind ?? kind]);
+  const [restSeconds, setRestSeconds] = useState(existing?.restSeconds ?? null); // null = the global rest length
   const [increaseText, setIncreaseText] = useState(formatWeight(existing?.progression?.increase ?? INCREASE_DEFAULT));
   const [base, setBase] = useState(null); // planned base for the jump note; null = loading
   const [error, setError] = useState('');
@@ -116,7 +119,8 @@ export default function ExerciseEditScreen() {
     if (place === 'indoor' && !increaseValid) return setError('Increase per week must be 0.05–50 kg');
 
     const program = getProgram();
-    const exercise = { id: existing?.id ?? newId('ex'), name: trimmed, place, kind: effectiveKind, sets, step };
+    // restSeconds is always sent (null when cleared), so "Use default" overwrites a stored value.
+    const exercise = { id: existing?.id ?? newId('ex'), name: trimmed, place, kind: effectiveKind, sets, step, restSeconds };
     // Weekly progression (indoor): merge, so a planned weight set in History → By exercise is kept.
     if (place === 'indoor') exercise.progression = { ...(existing?.progression ?? {}), increase };
     const exercises = isNew
@@ -247,6 +251,30 @@ export default function ExerciseEditScreen() {
 
         <InsetGroup header="Weight step (kg per tap)" padded>
           <SegmentedControl label="Weight step" options={stepOptions} value={step} onChange={setStep} />
+        </InsetGroup>
+
+        <InsetGroup
+          header="Rest"
+          footer={
+            restSeconds === null ? (
+              'Rest between sets of this exercise. Default uses the rest length from Settings.'
+            ) : (
+              <>
+                Rest between sets of this exercise.{' '}
+                <button type="button" className="inline-link" onClick={() => setRestSeconds(null)}>
+                  Use default
+                </button>
+              </>
+            )
+          }
+          padded
+        >
+          <RestStepper
+            label="Rest"
+            value={restSeconds}
+            onChange={setRestSeconds}
+            emptyLabel={`Default (${formatSeconds(getRestSeconds())})`}
+          />
         </InsetGroup>
 
         {place === 'indoor' && (

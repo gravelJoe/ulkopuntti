@@ -1,35 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { REST_SECONDS } from '../config/workouts.js';
-import {
-  getRestSeconds,
-  REST_MAX_SECONDS,
-  REST_MIN_SECONDS,
-  REST_STEP_SECONDS,
-  setRestSeconds,
-} from '../data/preferences.js';
+import { getRestSeconds, setRestSeconds } from '../data/preferences.js';
 import { useAuth } from '../hooks/useAuth.js';
 import {
   activeExercises,
   activeWorkouts,
   activeWorkoutsAt,
+  alarmTune,
   getProgram,
   holdWeeks,
   indoorGyms,
+  programLoaded,
+  refreshProgram,
+  ringWhenSilent,
   saveProgram,
   trainingMode,
+  useProgram,
 } from '../program/store.js';
 import { detectPlaceOnLaunch, resetPlace } from '../program/place.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { InsetGroup, LargeTitle, ListRow, NavBar, SegmentedControl } from '../components/ui.jsx';
+import RestStepper from '../components/RestStepper.jsx';
+import { formatSeconds } from '../utils/format.js';
+import { playTune, stopTune, unlockAudio } from '../utils/alert.js';
+import { TUNE_IDS, TUNES, tuneIdOrDefault } from '../utils/tunes.js';
 
 const THEME_OPTIONS = [
   { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
 ];
-
-const formatClock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** Weeks a lowered weight is held after a Go down (indoor progression), synced with the account. */
 function HoldSetting() {
@@ -75,50 +76,154 @@ function RestTimerSetting() {
   const [seconds, setSeconds] = useState(getRestSeconds);
 
   function change(next) {
-    const clamped = Math.min(REST_MAX_SECONDS, Math.max(REST_MIN_SECONDS, next));
-    setSeconds(clamped);
-    setRestSeconds(clamped);
+    setSeconds(next);
+    setRestSeconds(next);
   }
 
+  const text = 'Runs between sets of the same exercise. Exercises can have their own rest.';
   return (
     <InsetGroup
       header="Default timer"
       footer={
         seconds === REST_SECONDS ? (
-          'Starts after each set.'
+          text
         ) : (
           <>
-            Starts after each set.{' '}
+            {text}{' '}
             <button className="inline-link" onClick={() => change(REST_SECONDS)}>
-              Reset to {formatClock(REST_SECONDS)}
+              Reset to {formatSeconds(REST_SECONDS)}
             </button>
           </>
         )
       }
       padded
     >
-      <div className="stepper">
-        <button
-          className="stepper-btn"
-          aria-label={`Default timer: ${REST_STEP_SECONDS} seconds shorter`}
-          disabled={seconds <= REST_MIN_SECONDS}
-          onClick={() => change(seconds - REST_STEP_SECONDS)}
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h14" /></svg>
-        </button>
-        <div className="stepper-value" aria-live="polite" aria-label={`Default timer ${formatClock(seconds)}`}>
-          {formatClock(seconds)}
-          <span className="stepper-unit">min</span>
-        </div>
-        <button
-          className="stepper-btn"
-          aria-label={`Default timer: ${REST_STEP_SECONDS} seconds longer`}
-          disabled={seconds >= REST_MAX_SECONDS}
-          onClick={() => change(seconds + REST_STEP_SECONDS)}
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h14M10 3v14" /></svg>
-        </button>
-      </div>
+      <RestStepper label="Default timer" value={seconds} onChange={change} />
+    </InsetGroup>
+  );
+}
+
+const RING_OPTIONS = [
+  { value: true, label: 'On' },
+  { value: false, label: 'Off' },
+];
+
+/**
+ * The rest alarm: tune and "Ring even when silent" (saved with the account),
+ * plus Test sound. Guests get Test sound only (their default program plays
+ * beep, ringing in silent mode).
+ */
+function AlarmSetting({ loggedIn }) {
+  useProgram(); // re-render when the program changes (load, save, rollback)
+  const tune = tuneIdOrDefault(alarmTune()); // an id from a newer app shows as Beep, unsaved
+  const ring = ringWhenSilent();
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState('');
+
+  // Load the latest program before allowing a save, so a stale copy can't
+  // overwrite a newer one (programLoaded gives up after 3 s).
+  useEffect(() => {
+    if (!loggedIn) return;
+    let alive = true;
+    refreshProgram();
+    programLoaded().then(() => alive && setLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, [loggedIn]);
+
+  // Leaving Settings stops a test.
+  useEffect(() => () => stopTune(), []);
+
+  async function save(next) {
+    // SegmentedControl keeps the selected option tappable even when disabled, so guard here.
+    if (saving || !loaded) return;
+    setSaving(true);
+    setError('');
+    try {
+      await saveProgram(next);
+    } catch (err) {
+      setError(err.message); // saveProgram has already put the old value back
+    }
+    setSaving(false);
+  }
+
+  function pickTune(id) {
+    if (id === tune) return;
+    if (testing) {
+      stopTune();
+      setTesting(false);
+    }
+    save({ ...getProgram(), alarmTune: id });
+  }
+
+  function pickRing(value) {
+    if (value === ring) return;
+    save({ ...getProgram(), ringWhenSilent: value });
+  }
+
+  function toggleTest() {
+    if (testing) {
+      stopTune();
+      setTesting(false);
+      return;
+    }
+    unlockAudio(); // inside the tap
+    setTesting(true);
+    playTune(alarmTune(), { ringWhenSilent: ringWhenSilent(), onEnded: () => setTesting(false) });
+  }
+
+  const locked = saving || !loaded;
+  return (
+    <InsetGroup
+      header="Rest alarm"
+      footer={error || 'On iPhone the alarm needs Puntti open on screen. On Android it plays at media volume.'}
+    >
+      {loggedIn ? (
+        <>
+          {TUNE_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className="list-row picker-row"
+              aria-pressed={id === tune}
+              disabled={locked}
+              onClick={() => pickTune(id)}
+            >
+              <span className="list-row-content row-title">{TUNES[id].label}</span>
+              {id === tune && (
+                <span className="picker-check is-on" aria-hidden="true">
+                  ✓
+                </span>
+              )}
+            </button>
+          ))}
+          <div className="list-row">
+            <div className="list-row-content">
+              <div className="row-title">Ring even when silent</div>
+              <div className="row-subtitle">
+                Plays in silent mode on iPhone. Pauses music when the alarm plays. Music does not resume by itself.
+              </div>
+              <div className="alarm-ring-control">
+                <SegmentedControl
+                  label="Ring even when silent"
+                  options={RING_OPTIONS}
+                  value={ring}
+                  onChange={pickRing}
+                  disabled={locked}
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="list-row empty-state">Log in to choose a tune.</div>
+      )}
+      <ListRow onClick={toggleTest}>
+        <div className="row-action">{testing ? 'Stop' : 'Test sound'}</div>
+      </ListRow>
     </InsetGroup>
   );
 }
@@ -251,6 +356,8 @@ export default function SettingsScreen({ theme, setTheme }) {
       {user && trainingMode() !== 'outdoor' && <HoldSetting />}
 
       <RestTimerSetting />
+
+      <AlarmSetting loggedIn={Boolean(user)} />
 
       <InsetGroup header="Appearance" padded>
         <SegmentedControl label="Appearance" options={THEME_OPTIONS} value={theme} onChange={setTheme} />

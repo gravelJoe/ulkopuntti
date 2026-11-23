@@ -32,7 +32,7 @@ Everything else lives in the subfolders below.
   - [program](./program/README.md) — program store and training-place
     detection.
   - [screens](./screens/README.md) — one component per route.
-  - [utils](./utils/README.md) — alert, formatting, geolocation, plate maths.
+  - [utils](./utils/README.md) — alert, tunes, formatting, geolocation, plate maths.
   - [workout](./workout/README.md) — in-progress session reducer and save
     shape.
   - `styles/` — CSS only (design tokens, base, components); no contract.

@@ -315,6 +315,12 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+/* RestStepper with no value of its own: "Default (2:00)", muted and smaller so it fits */
+.stepper-value.is-default {
+  color: var(--label-3);
+  font-size: 20px;
+  font-weight: 600;
+}
 .stepper-unit {
   margin-left: 4px;
   color: var(--label-2);
@@ -959,6 +965,10 @@ div.stepper-value {
   border-radius: 50%;
   font-size: 15px;
   font-weight: 700;
+}
+/* Settings → Rest alarm: the On/Off control under its label */
+.alarm-ring-control {
+  margin-top: 10px;
 }
 .picker-check.is-on {
   border-color: var(--accent);

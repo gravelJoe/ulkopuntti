@@ -19,22 +19,22 @@ Default exports, with the route each one is mounted on in `src/App.jsx`:
 | --- | --- | --- | --- |
 | `WelcomeScreen.jsx` | `WelcomeScreen` | `/welcome` | Log in, continue as guest, or (dev builds only) log in as the test user. Redirects to `location.state.returnTo` (default `/`). |
 | `HomeScreen.jsx` | `HomeScreen` | `/` | Resume or discard the in-progress draft, start a workout for the current place, link to History and Settings. Auto-opens today's workout. |
-| `WorkoutScreen.jsx` | `WorkoutScreen` | `/workout/:workoutId` | Live workout: tick sets, rest timer, gym picker for indoor workouts, finish and save. |
+| `WorkoutScreen.jsx` | `WorkoutScreen` | `/workout/:workoutId` | Live workout: tick sets, rest timer between sets of the same exercise, gym picker for indoor workouts, finish and save. |
 | `HistoryScreen.jsx` | `HistoryScreen` | `/history` | List of saved sessions (`listSessions`). Guests get a log-in prompt. |
 | `SessionDetailScreen.jsx` | `SessionDetailScreen` | `/history/:sessionId` | One session with per-exercise weight change versus the previous session; delete. |
-| `SettingsScreen.jsx` | `SettingsScreen({ theme, setTheme })` | `/settings` | Program links, training place mode, default rest timer, theme, account and logout. |
+| `SettingsScreen.jsx` | `SettingsScreen({ theme, setTheme })` | `/settings` | Program links, training place mode, default rest timer, rest alarm (tune, "Ring even when silent", Test sound), theme, account and logout. |
 | `ChangePasswordScreen.jsx` | `ChangePasswordScreen` | `/account/password` | Change the account password via `useAuth().changePassword`. |
 | `WorkoutsScreen.jsx` | `WorkoutsScreen` | `/settings/workouts` | Workouts sorted Monday-first by `weekday`. Grouped into Outdoor/Indoor only in "both" mode; otherwise shows the current mode's workouts with a count of hidden ones. |
 | `WorkoutEditScreen.jsx` | `WorkoutEditScreen` | `/settings/workouts/:editId` | Create (`editId === 'new'`) or edit a workout: name, badge, weekday, exercise slots (via `ExercisePicker`). The place picker only shows in "both" mode. |
 | `ExercisesScreen.jsx` | `ExercisesScreen` | `/settings/exercises` | Exercises for one place, sorted by name. The outdoor/indoor tab (`?place=`) only appears in "both" mode or when both places have exercises; otherwise the place follows `trainingMode()`. |
-| `ExerciseEditScreen.jsx` | `ExerciseEditScreen` | `/settings/exercises/:exerciseId` | Create (`'new'`) or edit an exercise: name, sets (1-10), weight step (choices fixed per kind). Place can only be chosen for a new exercise in "both" mode; kind (barbell/machine) only for indoor exercises. |
+| `ExerciseEditScreen.jsx` | `ExerciseEditScreen` | `/settings/exercises/:exerciseId` | Create (`'new'`) or edit an exercise: name, sets (1-10), weight step (choices fixed per kind), and its own rest length (or the default). Place can only be chosen for a new exercise in "both" mode; kind (barbell/machine) only for indoor exercises. |
 | `PlacesScreen.jsx` | `PlacesScreen` | `/settings/places` | Indoor gyms list and link to own plates. |
 | `GymEditScreen.jsx` | `GymEditScreen` | `/settings/places/:gymId` | Create (`'new'`) or edit a gym: name, plate source (`gym`/`own`), plates, bars, optional location and detection radius. |
 | `OwnPlatesScreen.jsx` | `OwnPlatesScreen` | `/settings/plates` | Edit the user's own plate set (`program.ownPlates`). |
 
 File-local helpers (not exported): `doneToday` and the module-level
 `autoOpenChecked` flag (`HomeScreen.jsx`); `RestTimerSetting`,
-`TrainingPlaceSetting`, `formatClock` (`SettingsScreen.jsx`); `autoBadge`
+`AlarmSetting`, `TrainingPlaceSetting` (`SettingsScreen.jsx`); `autoBadge`
 (`WorkoutEditScreen.jsx`); `dayOrder` (`WorkoutsScreen.jsx`).
 
 ## Invariants
@@ -69,8 +69,17 @@ File-local helpers (not exported): `doneToday` and the module-level
   by `autoBadge` (first two characters) until edited. A workout needs a name, a badge and at least one slot.
 - Bar weights must be between 0 and 100 kg. A comma decimal separator is
   accepted (`GymEditScreen.addBar`).
-- The rest timer is clamped to `REST_MIN_SECONDS`..`REST_MAX_SECONDS` in steps
-  of `REST_STEP_SECONDS` (`RestTimerSetting`).
+- Rest lengths (the global one in `RestTimerSetting`, an exercise's own in
+  `ExerciseEditScreen`) use `RestStepper`: `REST_MIN_SECONDS`..`REST_MAX_SECONDS`
+  in steps of `REST_STEP_SECONDS`. An exercise's rest is saved as
+  `restSeconds`, `null` for "use the default".
+- `WorkoutScreen` starts a rest only when the ticked exercise still has undone
+  sets, for `exerciseRestSeconds(id) ?? getRestSeconds()` seconds. Completing an
+  exercise or the workout starts none and stops any rest or tune.
+- `AlarmSetting` (logged in) reloads the program when it opens and keeps the
+  tune rows and the On/Off control disabled until `programLoaded()` resolves
+  (3 s at most) and while saving. It ignores taps on the option already
+  selected. Guests get "Log in to choose a tune" and Test sound.
 - `HomeScreen` auto-opens today's workout (`workoutForDay(new Date(), place)`)
   at most once per app launch, guarded by `autoOpenChecked`. Any user tap
   cancels it. It does not open if a different workout's draft is in progress or
@@ -120,7 +129,9 @@ File-local helpers (not exported): `doneToday` and the module-level
   training-place sections. Switching to a single place that has no workouts
   offers to move all workouts there.
 - Rest timer preference: `setRestSeconds` (`SettingsScreen`) and
-  `getRestSeconds` (`WorkoutScreen`) in `src/data/preferences.js`.
+  `getRestSeconds` (`WorkoutScreen`, `ExerciseEditScreen`, `RestStepper`) in
+  `src/data/preferences.js`. The alarm settings are saved in the program
+  (`saveProgram`, `SettingsScreen`); Test sound uses `playTune`/`stopTune`.
 - `WorkoutScreen` keeps the screen awake with `useWakeLock(true)` and runs the
   rest timer through `useRestTimer`.
 - Theme changes go through the `setTheme` prop passed from `App.jsx`.

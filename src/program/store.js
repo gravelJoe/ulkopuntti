@@ -4,12 +4,15 @@
 // Guest / first time: the default program from config/workouts.js.
 //
 // Program shape:
-//   exercises: [{ id, name, place, kind ('machine'|'barbell'), sets, step, archived? }]
+//   exercises: [{ id, name, place, kind ('machine'|'barbell'), sets, step, archived?,
+//                 restSeconds? (null, or 30–600 s in steps of 15: this exercise's own rest) }]
 //   workouts:  [{ id, name, badge, place, weekday, slots: [{ options: [exerciseId] }], archived? }]
 //   gyms:      [{ id, name, lat?, lon?, radius, plateSource ('gym'|'own'), plates, bars }]
 //   ownPlates: [{ weight, pairs }]                 (the user's own plate set)
 //   trainingMode: 'outdoor' | 'indoor' | 'both'   (both = GPS picks the place)
 //   holdWeeks: weeks a lowered weight is held after a Go down (0 = no hold)
+//   alarmTune: rest alarm tune id (any string is kept; an unknown id plays 'beep')
+//   ringWhenSilent: play the alarm in iPhone silent mode (boolean)
 //   Indoor exercises may carry progression: { increase, anchor?: { weight, at } }
 // "Deleting" archives, so History can still show old names.
 
@@ -18,12 +21,14 @@ import { DateTime } from 'luxon';
 import {
   HOLD_WEEKS_DEFAULT,
   INCREASE_DEFAULT,
+  RING_WHEN_SILENT_DEFAULT,
   SETS_PER_EXERCISE,
   WEIGHT_STEP,
   exercises as templateExercises,
   workouts as templateWorkouts,
 } from '../config/workouts.js';
 import { cacheProgram, currentScope, fetchProgram, loadCachedProgram, putProgram } from '../data/repository.js';
+import { DEFAULT_TUNE } from '../utils/tunes.js';
 
 export const WEEKDAYS = [
   { value: 1, short: 'Mo', name: 'Monday' },
@@ -58,6 +63,8 @@ export function defaultProgram() {
     ownPlates: [],
     trainingMode: 'outdoor',
     holdWeeks: HOLD_WEEKS_DEFAULT,
+    alarmTune: DEFAULT_TUNE,
+    ringWhenSilent: RING_WHEN_SILENT_DEFAULT,
   };
 }
 
@@ -113,6 +120,9 @@ function normalize(next) {
     ownPlates: next.ownPlates ?? [],
     trainingMode: next.trainingMode ?? 'outdoor',
     holdWeeks: next.holdWeeks ?? HOLD_WEEKS_DEFAULT,
+    // Any string is kept, so an older app version never resets a tune a newer one added.
+    alarmTune: typeof next.alarmTune === 'string' ? next.alarmTune : DEFAULT_TUNE,
+    ringWhenSilent: typeof next.ringWhenSilent === 'boolean' ? next.ringWhenSilent : RING_WHEN_SILENT_DEFAULT,
   };
 }
 
@@ -178,6 +188,16 @@ export const platesAt = (gym) => (gym?.plateSource === 'own' ? program.ownPlates
 export const hasLocation = (gym) => gym?.lat !== null && gym?.lat !== undefined && gym?.lon !== null && gym?.lon !== undefined;
 export const trainingMode = () => program.trainingMode;
 export const holdWeeks = () => program.holdWeeks;
+export const alarmTune = () => program.alarmTune;
+export const ringWhenSilent = () => program.ringWhenSilent;
+/**
+ * The exercise's own rest length in seconds, or null (then the caller uses the
+ * phone's global rest length). Archived exercises are found too, for drafts.
+ */
+export function exerciseRestSeconds(id) {
+  const r = exerciseById.get(id)?.restSeconds;
+  return typeof r === 'number' ? r : null;
+}
 /** { increase, anchor? } for an indoor exercise (increase defaults to 1 kg); null otherwise. */
 export function progressionOf(id) {
   const e = exerciseById.get(id);

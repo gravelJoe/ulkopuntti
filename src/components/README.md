@@ -26,10 +26,11 @@ confirm dialog). Weight display goes through `formatWeight` from
 | `BarbellHelper.jsx` | `default BarbellHelper({ weight, gym, plates, barId, onBar, onWeight })` | Indoor barbell bar picker and per-side plate loading, using `solvePlates`. |
 | `ExercisePicker.jsx` | `default ExercisePicker({ current = null, title = 'Add exercise', place = 'outdoor', onDone, onCancel })` | Full-screen exercise picker that can also create a new exercise. Calls `onDone([exerciseId])`. |
 | `PlateListEditor.jsx` | `default PlateListEditor({ plates, onChange })` | Controlled editor for `[{ weight, pairs }]` plate sets. |
-| `RestTimerOverlay.jsx` | `default RestTimerOverlay({ timer, remainingMs, onFastForward, onExtend, onSkip })` | Full-screen rest countdown. `timer.info: { justDone, next: { name, set, weight } \| null }`. |
+| `RestTimerOverlay.jsx` | `default RestTimerOverlay({ timer, remainingMs, playing, endedAgoMs, onFastForward, onExtend, onSkip })` | Full-screen rest countdown. `timer.info: { justDone, next: { name, set, weight } \| null }`. When finished: "Stop alarm" while `playing`, otherwise "Back to workout"; "Rest ended m:ss ago" when `endedAgoMs` is over 5 s. |
+| `RestStepper.jsx` | `default RestStepper({ label, value, onChange, emptyLabel })` | − / + rest length in seconds (`REST_MIN_SECONDS`..`REST_MAX_SECONDS`, steps of `REST_STEP_SECONDS`). `null` shows `emptyLabel`, muted, and − / + start from `getRestSeconds()`. `label` names it for screen readers. No reset link: each screen has its own. |
 
-`Plate` (`BarbellHelper.jsx`), `ConfirmDialog` (`ConfirmDialog.jsx`) and
-`formatClock` (`RestTimerOverlay.jsx`) are file-private.
+`Plate` (`BarbellHelper.jsx`) and `ConfirmDialog` (`ConfirmDialog.jsx`) are
+file-private.
 
 `ExerciseCard` dispatches these actions to its `dispatch` prop:
 `{ type: 'select', slot, exerciseId }`, `{ type: 'setWeight', slot, weight }`
@@ -66,7 +67,8 @@ and `{ type: 'setBar', slot, barId }`.
 - `PlateListEditor` keeps `pairs` between 0 and 30. It rejects weights that fail
   `isValidPlateWeight` and duplicate weights. It is deliberately not a `<form>`
   because it is nested inside other forms (for example the gym editor).
-- `RestTimerOverlay` renders nothing when `timer` is falsy. The adjust buttons
+- `RestTimerOverlay` renders nothing when `timer` is falsy. Times use
+  `formatSeconds` from `../utils/format.js`. The adjust buttons
   use `REST_FAST_FORWARD_SECONDS` and `REST_EXTEND_SECONDS` from
   `../config/workouts.js`.
 

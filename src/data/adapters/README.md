@@ -35,7 +35,9 @@ All six methods are `async`; `isGuest` is a plain boolean.
 - `apiAdapter.getSession` turns a 404 `ApiError` into `null` and rethrows
   every other error (`api.js:getSession`).
 - `guestAdapter` never stores anything. `saveSession` echoes its input and
-  `saveProgram` always rejects (`guest.js`).
+  `saveProgram` always rejects (`guest.js`). Guests therefore use the default
+  program: the `beep` alarm, "Ring even when silent" on, and no per-exercise
+  rest lengths.
 - `apiAdapter` sends every request through `apiFetch` from
   [`../http.js`](../http.js), so it gets the bearer token and the 401
   logout handling from there.

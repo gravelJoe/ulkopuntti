@@ -28,6 +28,8 @@ export function setThemePreference(value) {
 
 
 const REST_KEY = 'puntti.restSeconds';
+// The same limits apply to each exercise's own rest length (restSeconds).
+// server/src/routes/program.js checks them too: keep the two in step.
 export const REST_MIN_SECONDS = 30;
 export const REST_MAX_SECONDS = 600;
 export const REST_STEP_SECONDS = 15;

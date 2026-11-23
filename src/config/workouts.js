@@ -15,6 +15,7 @@ export const WEIGHT_STEP = 5; // kg per tap on − / +, default for new exercise
 export const DEFAULT_WEIGHT = 20; // kg, used when an exercise has no history
 export const INCREASE_DEFAULT = 1; // kg per week, indoor progression (per exercise, editable)
 export const HOLD_WEEKS_DEFAULT = 1; // weeks a lowered weight is held after a Go down
+export const RING_WHEN_SILENT_DEFAULT = true; // play the rest alarm in iPhone silent mode (pauses music)
 
 // Starting exercise library. Keys are the ids stored in history.
 export const exercises = {

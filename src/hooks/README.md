@@ -9,7 +9,7 @@ React hooks that connect components to browser APIs and to the client-side auth 
 - `useAuth.js`
   - `useAuth()`: returns `{ user, entered, login, continueAsGuest, logout, changePassword }`. `user` is `null` for guests. The actions are passed straight through from `src/data/auth.js`.
 - `useRestTimer.js`
-  - `useRestTimer()`: returns `{ timer, remainingMs, start(seconds, info), fastForward(seconds), extend(seconds), skip() }`. `timer` is `{ endAt, durationMs, info, finished }` or `null`.
+  - `useRestTimer()`: returns `{ timer, remainingMs, endedAgoMs, playing, start(seconds, info), fastForward(seconds), extend(seconds), skip() }`. `timer` is `{ endAt, durationMs, info, finished, endedAgoMs, tuneEnded }` or `null`. `endedAgoMs` is how late the end was noticed (large when the page was paused); `playing` is true while the alarm tune plays.
 - `useTheme.js`
   - `useTheme()`: returns `[preference, setPreference]`, where the preference is `'system' | 'light' | 'dark'`.
 - `useWakeLock.js`
@@ -19,7 +19,8 @@ React hooks that connect components to browser APIs and to the client-side auth 
 
 - `useRestTimer` counts down to an end timestamp (`endAt`) instead of counting ticks, so it stays correct when the browser throttles or pauses the page. While a timer is running it re-checks every 200 ms and whenever page visibility changes.
 - Call `useRestTimer().start` from a tap handler. It calls `unlockAudio()`, and browsers only allow sound after a user gesture.
-- When the rest ends, the timer is marked `finished` and the alert plays once. The timer closes itself 4000 ms later (`AUTO_CLOSE_MS`). `skip()` closes it right away without the alert.
+- When the rest ends, the timer is marked `finished` once and the chosen tune (`alarmTune()`, `ringWhenSilent()`, read at that moment) plays once. "Go!" closes 4000 ms (`AUTO_CLOSE_MS`) after an audible tune ends, if the page is visible. If the sound was blocked, or the page was hidden when the tune ended, it stays until a tap. `skip()` closes it at once and stops the tune.
+- Clearing or replacing the timer (Skip, Stop alarm, a new rest, finishing) and unmounting stop the tune. Hiding the page does not. A late end from an old tune never marks a newer rest.
 - `fastForward` never moves `endAt` before the current time. `extend` increases `durationMs` when needed so the progress bar still matches. Both do nothing once the timer has finished.
 - `useTheme` with `'system'` removes `data-theme` from `<html>`. Any other value sets it.
 - `useWakeLock` does nothing if `navigator.wakeLock` is missing. The lock needs HTTPS. The browser drops the lock when the page is hidden, so the hook requests it again when the page becomes visible. If the request is denied, the error is ignored.
@@ -27,7 +28,7 @@ React hooks that connect components to browser APIs and to the client-side auth 
 ## Side Effects
 
 - `useAuth`: subscribes to `src/data/auth.js` change notifications.
-- `useRestTimer`: runs `setInterval`/`setTimeout`, adds a `visibilitychange` listener on `document`, and calls `playRestOverAlert()` from `src/utils/alert.js` (vibration and Web Audio beep).
+- `useRestTimer`: runs `setInterval`/`setTimeout`, adds a `visibilitychange` listener on `document`, and plays the chosen tune with `playTune`/`stopTune` from `src/utils/alert.js` (Web Audio, vibration, and the iPhone audio session).
 - `useTheme`: writes `document.documentElement.dataset.theme`, saves the choice through `setThemePreference` (`src/data/preferences.js`), and updates `<meta name="theme-color">`. When the module loads, it creates a `matchMedia('(prefers-color-scheme: dark)')` query. While a component using the hook is mounted, a `change` listener on that query re-syncs `<meta name="theme-color">`.
 - `useWakeLock`: calls `navigator.wakeLock.request('screen')`, adds a `visibilitychange` listener, and on cleanup removes it and releases the lock (also a lock that arrives after unmount).
 

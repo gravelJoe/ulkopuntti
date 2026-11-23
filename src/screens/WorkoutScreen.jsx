@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { exerciseName, getGym, getWorkout, indoorGyms } from '../program/store.js';
+import { exerciseName, exerciseRestSeconds, getGym, getWorkout, indoorGyms } from '../program/store.js';
 import { detectPlaceOnLaunch, getPlaceState, markAtGym } from '../program/place.js';
 import { getRestSeconds } from '../data/preferences.js';
 import { clearDraft, isGuest, loadDraft, markFinishedToday, saveDraft, saveSession } from '../data/repository.js';
@@ -97,13 +97,16 @@ export default function WorkoutScreen() {
     const wasDone = slot.sets[slot.selected][index];
     dispatch(action);
 
-    // Marking a set done (not undoing) starts the rest — unless it was the last set.
+    // A tick starts a rest only if that exercise has sets left. Completing an
+    // exercise or the workout starts none, and stops any running rest or tune.
+    // Undoing a set never starts or stops the timer.
     if (wasDone) return;
     const after = sessionReducer(session, action);
     const upcoming = nextSet(after);
     const doneSets = after.slots[slotIndex].sets[slot.selected];
 
     if (!upcoming) {
+      rest.skip();
       // Indoor (logged in): stay here so the last exercise's result can be set,
       // then save with the button. Otherwise: save and go home automatically.
       if (progressive) {
@@ -114,18 +117,21 @@ export default function WorkoutScreen() {
       return;
     }
 
-    // Exercise complete → scroll to the next unfinished one.
-    if (doneSets.every(Boolean)) {
+    // Exercise complete → no rest; scroll to the next unfinished one.
+    const nextIndex = doneSets.indexOf(false);
+    if (nextIndex === -1) {
+      rest.skip();
       setTimeout(() => cardRefs.current[upcoming.slot]?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250);
+      return;
     }
 
-    const nextSlot = after.slots[upcoming.slot];
-    rest.start(getRestSeconds(), {
+    // Sets left → rest, with this exercise's own length if it has one. "Next:" is this exercise.
+    rest.start(exerciseRestSeconds(slot.selected) ?? getRestSeconds(), {
       justDone: `${exerciseName(slot.selected)} · Set ${doneSets.filter(Boolean).length} of ${doneSets.length} done`,
       next: {
-        name: exerciseName(nextSlot.selected),
-        set: upcoming.index + 1,
-        weight: nextSlot.weight[nextSlot.selected],
+        name: exerciseName(slot.selected),
+        set: nextIndex + 1,
+        weight: after.slots[slotIndex].weight[slot.selected],
       },
     });
   }
@@ -290,6 +296,8 @@ export default function WorkoutScreen() {
       <RestTimerOverlay
         timer={rest.timer}
         remainingMs={rest.remainingMs}
+        playing={rest.playing}
+        endedAgoMs={rest.endedAgoMs}
         onFastForward={rest.fastForward}
         onExtend={rest.extend}
         onSkip={rest.skip}

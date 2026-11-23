@@ -10,8 +10,9 @@ Mongoose schemas and models for the MongoDB collections. Each model's `toJSON` t
 - `Program` (`Program.js`): one document per user.
   - Fields: `userId` (ref `User`, required, unique), plus `exercises`, `workouts`, `gyms` and `ownPlates` stored as `[Mixed]` with default `[]`.
   - `trainingMode`: one of `'outdoor' | 'indoor' | 'both'`, default `'outdoor'`.
+  - `holdWeeks` (Number, default 1), `alarmTune` (String, default `'beep'`), `ringWhenSilent` (Boolean, default `true`). Exercises may carry `restSeconds` (stored as `Mixed`, no schema change).
   - Schema options: `timestamps: true`, `minimize: false`.
-  - `toJSON` returns `{ exercises, workouts, gyms, ownPlates, trainingMode }`. Only `gyms`, `ownPlates` and `trainingMode` get fallbacks; `exercises` and `workouts` are passed through as stored.
+  - `toJSON` returns `{ exercises, workouts, gyms, ownPlates, trainingMode, holdWeeks, alarmTune, ringWhenSilent }`. All but `exercises` and `workouts` get fallbacks (`alarmTune ?? 'beep'`, `ringWhenSilent ?? true`), so programs saved before these fields existed read as the defaults; `exercises` and `workouts` are passed through as stored.
 - `Workout` (`Workout.js`): a completed workout session.
   - Fields: `userId`, `clientId` (max 64) and `workoutId` (max 40), all required; `place` (`'outdoor' | 'indoor'`, default `'outdoor'`), `gymId` (max 40, default `null`), `startedAt` and `finishedAt` (both required), and `exercises`. Has timestamps.
   - Each entry in `exercises` has `exerciseId` (required, max 40), `weight` (required, 0–999), `sets` (required, an array of 1–20 `Boolean`) and an optional `bar { name (max 30), weight (0–100) }`.

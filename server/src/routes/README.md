@@ -36,6 +36,7 @@ Express routers for the JSON API. `../index.js` mounts them under `/api/auth`, `
   - Gym `radius` must be 50–2000 m (default 200), `lat`/`lon` within ±90/±180 when given, at most 10 bars per gym, bar weight 0–100 kg.
   - Plate weights must be greater than 0, at most 50 kg and a multiple of 0.05, with 0–30 pairs per size, no duplicate sizes and at most 20 sizes per list.
   - Missing or invalid values fall back to `place: 'outdoor'`, `kind: 'machine'`, `plateSource: 'gym'`, `trainingMode: 'outdoor'`.
+  - Rest alarm fields never cause a 400, because a save replaces the whole program: an exercise `restSeconds` that isn't a whole number 30–600 in steps of 15 becomes `null` (these limits mirror `src/data/preferences.js`); an `alarmTune` that doesn't match the ID pattern becomes `'beep'` (any id-like string is stored, so a new tune needs no server change); a non-boolean `ringWhenSilent` becomes `true`.
   - Unknown fields are dropped.
 - Validation failures throw errors with `status = 400` and `expose = true`. The error handler in `../index.js` returns these as JSON.
 

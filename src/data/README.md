@@ -56,8 +56,12 @@ keeps track of who is logged in and switches the adapter when that changes.
 
 - `getThemePreference()` returns `'system'`, `'light'`, or `'dark'`.
   `setThemePreference(value)` sets it.
-- `getRestSeconds()`, `setRestSeconds(seconds)`
-- `REST_MIN_SECONDS` (30), `REST_MAX_SECONDS` (600), `REST_STEP_SECONDS` (15)
+- `getRestSeconds()`, `setRestSeconds(seconds)`: the global rest length, per
+  phone. An exercise's own rest length is in the program instead, read with
+  `exerciseRestSeconds(id)` from `src/program/store.js`.
+- `REST_MIN_SECONDS` (30), `REST_MAX_SECONDS` (600), `REST_STEP_SECONDS` (15).
+  The same limits apply to `restSeconds`, and `server/src/routes/program.js`
+  checks them too: keep the two in step.
 
 ### Subdirectories
 

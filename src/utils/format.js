@@ -43,6 +43,11 @@ export function formatDuration(startIso, endIso) {
   return `${Math.floor(min / 60)} h ${min % 60} min`;
 }
 
+/** 90 → "1:30", 600 → "10:00" (m:ss for a number of seconds) */
+export function formatSeconds(s) {
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 /** "+2.5 kg", "−5 kg", or null when unchanged */
 export function formatWeightChange(diff) {
   if (!diff) return null;

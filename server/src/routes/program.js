@@ -21,6 +21,20 @@ const text = (v, max, what) => {
 };
 
 const PLACES = ['outdoor', 'indoor'];
+
+// Per-exercise rest length limits. They mirror REST_MIN_SECONDS,
+// REST_MAX_SECONDS and REST_STEP_SECONDS in src/data/preferences.js:
+// keep the two in step.
+const REST_MIN = 30;
+const REST_MAX = 600;
+const REST_STEP = 15;
+
+/** An exercise's own rest length in seconds, or null (use the global one). Never throws. */
+function cleanRestSeconds(v) {
+  const r = v === null || v === undefined ? null : Number(v);
+  return Number.isInteger(r) && r >= REST_MIN && r <= REST_MAX && (r - REST_MIN) % REST_STEP === 0 ? r : null;
+}
+
 const isPlateWeight = (w) => w > 0 && w <= 50 && Math.abs(w / 0.05 - Math.round(w / 0.05)) < 1e-6;
 
 /** [{ weight, pairs }] — a plate set (gym's or the user's own). */
@@ -80,6 +94,8 @@ function clean(body) {
       sets,
       step,
       archived: Boolean(e.archived),
+      // Invalid values become null instead of a 400: a save replaces the whole program.
+      restSeconds: cleanRestSeconds(e.restSeconds),
       // Weekly progression is indoor only; it's dropped for outdoor exercises.
       ...(place === 'indoor' && e.progression ? { progression: cleanProgression(e.progression) } : {}),
     };
@@ -161,7 +177,13 @@ function clean(body) {
     throw bad('Hold must be a whole number of weeks');
   }
 
-  return { exercises, workouts, gyms, ownPlates, trainingMode, holdWeeks };
+  // Rest alarm settings. Bad values fall back to the defaults instead of a 400.
+  // Tune ids are listed only in the app (src/utils/tunes.js), so any id-like
+  // string is stored as sent and a new tune needs no server change.
+  const alarmTune = typeof body.alarmTune === 'string' && ID.test(body.alarmTune) ? body.alarmTune : 'beep';
+  const ringWhenSilent = typeof body.ringWhenSilent === 'boolean' ? body.ringWhenSilent : true;
+
+  return { exercises, workouts, gyms, ownPlates, trainingMode, holdWeeks, alarmTune, ringWhenSilent };
 }
 
 // null until the user saves their first change — the app then uses the default program.
